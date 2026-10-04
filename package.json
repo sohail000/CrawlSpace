@@ -1,0 +1,18 @@
+{
+  "name": "crawlspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A research crawler you can watch: real spiders on the real web, reading with Claude.",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "cheerio": "^1.2.0"
+  }
+}

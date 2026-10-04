@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crawlspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand"><b>CRAWLSPACE</b><span>research spiders on the real web</span></div>
+  <form id="hunt" class="hunt" autocomplete="off">
+    <input id="q" class="q" name="q" placeholder="What should the spiders hunt for?" required maxlength="400" aria-label="Research question">
+    <input id="seeds" class="seeds" name="seeds" placeholder="Seed URL (optional, else they balloon via Wikipedia)" aria-label="Seed URLs">
+    <label class="sel">pages
+      <select id="budget" aria-label="Page budget"><option>10</option><option selected>20</option><option>40</option><option>80</option></select>
+    </label>
+    <label class="sel">spiders
+      <select id="spiders" aria-label="Spider count"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>6</option></select>
+    </label>
+    <label class="sel">depth
+      <select id="depth" aria-label="Max link depth"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
+    </label>
+    <label class="sel" id="brain-wrap" hidden>brain
+      <select id="brain" aria-label="Brain"><option value="model" id="brain-model">model</option><option value="keywords">keywords (instant)</option></select>
+    </label>
+    <button type="submit" class="primary" id="go">Release</button>
+    <button type="button" id="stop" disabled>Stop &amp; weave</button>
+  </form>
+</header>
+
+<div class="hud" id="hud">
+  <span class="mode" id="mode">connecting…</span>
+  <span><em id="h-spiders">00</em> spiders</span>
+  <span><em id="h-pages">00</em>/<span id="h-budget">00</span> pages</span>
+  <span><em id="h-bites">000</em> bites</span>
+  <span><em id="h-queue">000</em> queued</span>
+  <span><em id="h-failed">00</em> fell</span>
+  <span id="h-cost-wrap"><em id="h-tokens">0</em> tokens<span id="h-cost-sep"> · </span><em id="h-cost">$0.00</em></span>
+  <span class="phase" id="phase">idle</span>
+</div>
+
+<main class="stage">
+  <section class="panel web" aria-label="The web: live crawl graph">
+    <div class="ph"><b>THE WEB</b><span>nodes are real URLs · threads are real links · dots are queued links</span></div>
+    <div class="canvas-wrap">
+      <canvas id="web" aria-hidden="true"></canvas>
+      <div class="tip" id="tip" hidden></div>
+      <div class="intro" id="intro">
+        <h1>Ask a question. Release the spiders.</h1>
+        <p>Each spider is a real worker on your machine. When it <b>walks</b>, a request is in flight. When it <b>reads</b>, the model is reading that exact page. When it <b>bites</b>, those are the passages the model chose as evidence. The silk is the actual link it followed.</p>
+        <p class="examples">Try:
+          <button type="button" data-q="How do spiders make silk stronger than steel?">spider silk strength</button>
+          <button type="button" data-q="What caused the Bronze Age collapse?">Bronze Age collapse</button>
+          <button type="button" data-q="How does CRISPR gene editing work?">CRISPR</button>
+        </p>
+      </div>
+      <ul class="legend" aria-hidden="true">
+        <li><i class="lg dot"></i>queued link</li>
+        <li><i class="lg ring"></i>fetching</li>
+        <li><i class="lg fill"></i>read (size = relevance)</li>
+        <li><i class="lg x"></i>fell (robots, error)</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel specimen" id="spec-pane" aria-label="Specimen: page being read">
+    <div class="ph spec-head">
+      <div class="spec-title">
+        <b id="spec-title">No page yet</b>
+        <a id="spec-url" target="_blank" rel="noopener noreferrer"></a>
+        <span id="spec-meta" class="meta">Pages appear here the moment a spider starts reading them.</span>
+      </div>
+      <div class="spec-side">
+        <div class="rel" id="spec-rel" title="Relevance"><i></i></div>
+        <button type="button" id="spec-follow" class="chip" hidden>Follow live</button>
+      </div>
+    </div>
+    <div class="spec-body">
+      <div class="spec-scroll" id="spec-scroll">
+        <div class="spec-empty" id="spec-empty">The page a spider is reading shows up here, as clean text: exactly what the model sees.</div>
+        <article id="spec-article"></article>
+      </div>
+      <canvas id="spec-canvas" aria-hidden="true"></canvas>
+    </div>
+  </section>
+
+  <section class="panel drawer" aria-label="Findings, answer and log">
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="larder">Larder <em id="c-larder">0</em></button>
+      <button role="tab" aria-selected="false" data-tab="orb">Answer</button>
+      <button role="tab" aria-selected="false" data-tab="log">Log</button>
+    </div>
+    <div class="tabpane" data-pane="larder"><ol id="larder" class="larder"><li class="none">Bitten passages pile up here, each tied to its source.</li></ol></div>
+    <div class="tabpane" data-pane="orb" hidden><div id="orb" class="orb"><p class="none">When the crawl ends, the orb-weaver writes a cited answer from the larder.</p></div></div>
+    <div class="tabpane" data-pane="log" hidden><ol id="log" class="log"></ol></div>
+  </section>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

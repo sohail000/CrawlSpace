@@ -1,0 +1,595 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Crawlspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Space+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: sticky instrument bar over a dark encyclopedia specimen page; the page itself is the canvas. Single dark world by choice. */
+:root {
+  --ink: #08070d;
+  --panel: #110f1a;
+  --rule: #272338;
+  --text: #cdc9de;
+  --dim: #8a849f;
+  --link: #8e9aff;
+  --hot: #ff2bd6;
+  --cyan: #25e2ff;
+  --on-hot: #08070d;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "Space Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--ink); color: var(--text); }
+body { font-family: var(--serif); font-size: 16px; line-height: 1.6; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+  background: color-mix(in srgb, var(--ink) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--rule);
+  padding-inline: 16px; padding-block: 10px;
+}
+.bar-in { max-width: 1040px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.brand { display: flex; flex-direction: column; gap: 0; margin-right: auto; min-width: 0; }
+.brand b { font-family: var(--mono); font-weight: 700; letter-spacing: .22em; font-size: 15px; color: #fff; }
+.brand span { font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .04em; }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+button, .chip {
+  font-family: var(--mono); font-size: 12px; letter-spacing: .03em;
+  background: transparent; color: var(--text);
+  border: 1px solid var(--rule); border-radius: 3px;
+  padding: 6px 10px; cursor: pointer;
+}
+button:hover, .chip:hover { border-color: var(--hot); color: #fff; text-decoration: none; }
+button.primary { background: var(--hot); color: var(--on-hot); border-color: var(--hot); font-weight: 700; }
+button.primary:hover { color: var(--on-hot); filter: brightness(1.1); }
+button[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+.readout { font-family: var(--mono); font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.readout em { font-style: normal; color: var(--cyan); }
+
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 64px; }
+.hint { font-family: var(--mono); font-size: 12px; color: var(--dim); max-width: 70ch; margin: 0 0 22px; }
+.hint b { color: var(--hot); font-weight: 400; }
+
+article { max-width: 760px; }
+article h1 { font-weight: 400; font-size: 2.4rem; line-height: 1.1; margin: 0; text-wrap: balance; color: #fff; }
+.from { font-size: 13px; color: var(--dim); margin: 6px 0 18px; padding-bottom: 10px; border-bottom: 1px solid var(--rule); }
+article h2 { font-weight: 400; font-size: 1.5rem; color: #fff; margin: 1.8em 0 .5em; padding-bottom: 4px; border-bottom: 1px solid var(--rule); text-wrap: balance; }
+article p { margin: 0 0 1em; }
+
+.infobox { float: right; width: 260px; margin: 0 0 16px 24px; border: 1px solid var(--rule); background: var(--panel); font-size: 13px; line-height: 1.45; }
+.infobox .cap { text-align: center; font-weight: 600; padding: 8px; color: #fff; border-bottom: 1px solid var(--rule); }
+.infobox .swatch { height: 110px; background:
+  radial-gradient(circle at 50% 52%, var(--hot) 0 5px, transparent 6px),
+  repeating-conic-gradient(from 0deg at 50% 52%, transparent 0 13deg, color-mix(in srgb, var(--link) 45%, transparent) 13deg 14deg),
+  repeating-radial-gradient(circle at 50% 52%, transparent 0 9px, color-mix(in srgb, var(--link) 35%, transparent) 9px 10px);
+  border-bottom: 1px solid var(--rule); }
+.infobox table { width: 100%; border-collapse: collapse; }
+.infobox th, .infobox td { padding: 4px 10px; text-align: left; vertical-align: top; }
+.infobox th { font-weight: 400; color: var(--dim); width: 42%; }
+.infobox .sec { text-align: center; background: color-mix(in srgb, var(--hot) 14%, var(--panel)); color: #fff; }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--rule); }
+table.species { border-collapse: collapse; font-size: 14px; min-width: 620px; width: 100%; }
+.species th { text-align: left; font-family: var(--mono); font-size: 11px; font-weight: 400; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); background: var(--panel); }
+.species th, .species td { padding: 5px 10px; border-bottom: 1px solid var(--rule); }
+.species tr:last-child td { border-bottom: 0; }
+.species td:nth-child(2) { color: var(--dim); white-space: nowrap; }
+.seealso { padding-left: 1.2em; columns: 2; column-gap: 32px; }
+.note { font-size: 13px; color: var(--dim); border-top: 1px solid var(--rule); padding-top: 10px; margin-top: 28px; }
+
+.loose { clear: both; max-width: 760px; margin-top: 48px; border: 1px solid var(--rule); background: var(--panel); padding: 20px; }
+.loose h2 { font-family: var(--mono); font-weight: 700; font-size: 14px; letter-spacing: .14em; text-transform: uppercase; color: #fff; margin: 0 0 10px; }
+.loose p, .loose li { font-size: 15px; }
+.loose ol { padding-left: 1.3em; margin: 0 0 14px; display: grid; gap: 4px; }
+.loose textarea { width: 100%; box-sizing: border-box; height: 92px; resize: vertical; font-family: var(--mono); font-size: 11px; line-height: 1.4; color: var(--dim); background: var(--ink); border: 1px solid var(--rule); padding: 8px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.chip { display: inline-block; border-style: dashed; color: var(--hot); }
+.status { font-family: var(--mono); font-size: 12px; color: var(--cyan); }
+kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--rule); padding: 0 4px; border-radius: 3px; }
+
+@media (max-width: 720px) {
+  .infobox { float: none; width: auto; margin: 0 0 18px; }
+  article h1 { font-size: 2rem; }
+  .seealso { columns: 1; }
+}
+</style>
+
+<header class="bar" data-crawlspace-ui>
+  <div class="bar-in">
+    <div class="brand"><b>CRAWLSPACE</b><span>procedural web crawlers · JS/CSS</span></div>
+    <div class="controls">
+      <button id="b-one" class="primary" type="button">Release one</button>
+      <button id="b-swarm" type="button">Swarm ×5</button>
+      <button id="b-pause" type="button" aria-pressed="false">Pause</button>
+      <button id="b-heal" type="button">Heal page</button>
+      <button id="b-clear" type="button">Clear</button>
+    </div>
+    <div class="readout" id="readout" aria-live="off"><em>00</em> crawlers · <em>000</em> bites</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="hint" data-crawlspace-ui><b>Click anywhere on the article</b> to drop a crawler. Each one walks the page, bites a few words, rewrites them and spins silk back to its last bite. Bites heal on their own after a minute or so.</p>
+
+  <article id="specimen">
+    <h1>Spider</h1>
+    <div class="from">From the Crawlspace field encyclopedia · specimen page</div>
+
+    <aside class="infobox">
+      <div class="cap">Spiders</div>
+      <div class="swatch" role="img" aria-label="Abstract orb web"></div>
+      <table>
+        <tr><td colspan="2" class="sec">Scientific classification</td></tr>
+        <tr><th>Kingdom</th><td><a href="#t">Animalia</a></td></tr>
+        <tr><th>Phylum</th><td><a href="#t">Arthropoda</a></td></tr>
+        <tr><th>Subphylum</th><td><a href="#t">Chelicerata</a></td></tr>
+        <tr><th>Class</th><td><a href="#t">Arachnida</a></td></tr>
+        <tr><th>Order</th><td><b>Araneae</b><br>Clerck, 1757</td></tr>
+        <tr><td colspan="2" class="sec">Diversity</td></tr>
+        <tr><td colspan="2">52,000+ described species in about 130 families</td></tr>
+      </table>
+    </aside>
+
+    <p><b>Spiders</b> (order <a href="#t">Araneae</a>) are air-breathing <a href="#t">arthropods</a> with eight legs, fanged <a href="#t">chelicerae</a> that in most species deliver <a href="#t">venom</a>, and abdominal <a href="#t">spinnerets</a> that extrude <a href="#t">silk</a>. They are the largest order of <a href="#t">arachnids</a>, with more than 52,000 described species, and they live on every continent except Antarctica.</p>
+    <p>A spider's body has two main parts, the <a href="#t">cephalothorax</a> and the <a href="#t">abdomen</a>, joined by a narrow waist called the <a href="#t">pedicel</a>. Most species have eight eyes, though their arrangement and sharpness vary widely between families. Spiders have no antennae. Fine sensory hairs called <a href="#t">trichobothria</a> pick up air currents and vibrations instead.</p>
+
+    <h2>Silk</h2>
+    <p>Every spider makes silk, and many make several kinds from separate glands. <a href="#t">Orb-weavers</a> can produce up to seven types, each suited to a job: dragline for safety lines and web frames, a sticky capture spiral, egg-sac wrapping, and swathing silk for prey. Dragline silk combines strength and stretch so well that, weight for weight, it is tougher than high-grade steel.</p>
+    <p>Not all silk goes into webs. Many spiderlings disperse by <a href="#t">ballooning</a>, letting out threads that catch the wind and carry them for kilometres. The <a href="#t">diving bell spider</a> builds a silk bubble underwater and fills it with air carried down from the surface.</p>
+
+    <h2>Hunting</h2>
+    <p>Roughly half of all spider species catch prey without a web. <a href="#t">Jumping spiders</a> use large forward-facing principal eyes to judge distance well enough to leap onto prey several body lengths away. <a href="#t">Wolf spiders</a> run prey down on the ground, and <a href="#t">crab spiders</a> wait inside flowers for pollinators. One jumping spider, <i>Bagheera kiplingi</i>, feeds mostly on plant tissue from acacia trees, which is rare for a predator.</p>
+
+    <h2>Selected species</h2>
+    <div class="tablewrap">
+      <table class="species">
+        <thead><tr><th>Species</th><th>Authority</th><th>Family</th><th>Common name</th></tr></thead>
+        <tbody>
+          <tr><td><a href="#t"><i>Araneus diadematus</i></a></td><td>Clerck, 1757</td><td><a href="#t">Araneidae</a></td><td>European garden spider</td></tr>
+          <tr><td><a href="#t"><i>Argiope bruennichi</i></a></td><td>(Scopoli, 1772)</td><td><a href="#t">Araneidae</a></td><td>Wasp spider</td></tr>
+          <tr><td><a href="#t"><i>Caerostris darwini</i></a></td><td>Kuntner &amp; Agnarsson, 2010</td><td><a href="#t">Araneidae</a></td><td>Darwin's bark spider</td></tr>
+          <tr><td><a href="#t"><i>Trichonephila clavipes</i></a></td><td>(Linnaeus, 1767)</td><td><a href="#t">Araneidae</a></td><td>Golden silk orb-weaver</td></tr>
+          <tr><td><a href="#t"><i>Latrodectus mactans</i></a></td><td>(Fabricius, 1775)</td><td><a href="#t">Theridiidae</a></td><td>Southern black widow</td></tr>
+          <tr><td><a href="#t"><i>Loxosceles reclusa</i></a></td><td>Gertsch &amp; Mulaik, 1940</td><td><a href="#t">Sicariidae</a></td><td>Brown recluse</td></tr>
+          <tr><td><a href="#t"><i>Pholcus phalangioides</i></a></td><td>(Fuesslin, 1775)</td><td><a href="#t">Pholcidae</a></td><td>Long-bodied cellar spider</td></tr>
+          <tr><td><a href="#t"><i>Phidippus audax</i></a></td><td>(Hentz, 1845)</td><td><a href="#t">Salticidae</a></td><td>Bold jumping spider</td></tr>
+          <tr><td><a href="#t"><i>Salticus scenicus</i></a></td><td>(Clerck, 1757)</td><td><a href="#t">Salticidae</a></td><td>Zebra spider</td></tr>
+          <tr><td><a href="#t"><i>Bagheera kiplingi</i></a></td><td>Peckham &amp; Peckham, 1896</td><td><a href="#t">Salticidae</a></td><td>—</td></tr>
+          <tr><td><a href="#t"><i>Misumena vatia</i></a></td><td>(Clerck, 1757)</td><td><a href="#t">Thomisidae</a></td><td>Goldenrod crab spider</td></tr>
+          <tr><td><a href="#t"><i>Argyroneta aquatica</i></a></td><td>(Clerck, 1757)</td><td><a href="#t">Dictynidae</a></td><td>Diving bell spider</td></tr>
+          <tr><td><a href="#t"><i>Dolomedes fimbriatus</i></a></td><td>(Clerck, 1757)</td><td><a href="#t">Pisauridae</a></td><td>Raft spider</td></tr>
+          <tr><td><a href="#t"><i>Hogna carolinensis</i></a></td><td>(Walckenaer, 1805)</td><td><a href="#t">Lycosidae</a></td><td>Carolina wolf spider</td></tr>
+          <tr><td><a href="#t"><i>Theraphosa blondi</i></a></td><td>(Latreille, 1804)</td><td><a href="#t">Theraphosidae</a></td><td>Goliath birdeater</td></tr>
+          <tr><td><a href="#t"><i>Atrax robustus</i></a></td><td>O. Pickard-Cambridge, 1877</td><td><a href="#t">Atracidae</a></td><td>Sydney funnel-web spider</td></tr>
+          <tr><td><a href="#t"><i>Heteropoda maxima</i></a></td><td>Jäger, 2001</td><td><a href="#t">Sparassidae</a></td><td>Giant huntsman spider</td></tr>
+          <tr><td><a href="#t"><i>Scytodes thoracica</i></a></td><td>(Latreille, 1802)</td><td><a href="#t">Scytodidae</a></td><td>Spitting spider</td></tr>
+          <tr><td><a href="#t"><i>Tegenaria domestica</i></a></td><td>(Clerck, 1757)</td><td><a href="#t">Agelenidae</a></td><td>Barn funnel weaver</td></tr>
+          <tr><td><a href="#t"><i>Uloborus plumipes</i></a></td><td>Lucas, 1846</td><td><a href="#t">Uloboridae</a></td><td>Feather-legged lace weaver</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>See also</h2>
+    <ul class="seealso">
+      <li><a href="#t">Arachnology</a></li>
+      <li><a href="#t">Spider silk</a></li>
+      <li><a href="#t">Orb-weaver spider</a></li>
+      <li><a href="#t">Jumping spider</a></li>
+      <li><a href="#t">Ballooning (spider)</a></li>
+      <li><a href="#t">Kleptoparasitism</a></li>
+      <li><a href="#t">Arachnophobia</a></li>
+      <li><a href="#t">World Spider Catalog</a></li>
+    </ul>
+    <p class="note">Species and family counts follow the World Spider Catalog. Text written for this demo; every link on this page is a landing spot for crawlers.</p>
+  </article>
+
+  <section class="loose" data-crawlspace-ui>
+    <h2>Let them loose on any page</h2>
+    <p>The same engine runs as a bookmarklet, so you can set the crawlers loose on Wikipedia, a blog or your own site.</p>
+    <ol>
+      <li>Copy the code below.</li>
+      <li>Create a new bookmark in your browser and paste the code as its URL. Name it Crawlspace.</li>
+      <li>Open any text-heavy page and click the bookmark. Click it again for five more crawlers.</li>
+      <li>Press <kbd>Esc</kbd> to remove them and restore the page.</li>
+    </ol>
+    <label for="bm-code" class="hint" style="display:block;margin:0 0 6px">Bookmarklet code</label>
+    <textarea id="bm-code" readonly spellcheck="false"></textarea>
+    <div class="row">
+      <button id="b-copy" type="button" class="primary">Copy code</button>
+      <a id="bm-link" class="chip" href="#">⠿ Crawlspace (drag to bookmarks bar)</a>
+      <span id="copy-status" class="status" role="status"></span>
+    </div>
+    <p class="hint" style="margin:12px 0 0">Some sites with strict security settings block bookmarklets. Wikipedia works well.</p>
+  </section>
+</main>
+
+<script>
+function Crawlspace(opts) {
+  opts = opts || {};
+  var G = window;
+  if (G.__crawlspace && G.__crawlspace.alive) { G.__crawlspace.add(5); return G.__crawlspace; }
+  var PAL = ['#ff2bd6', '#25e2ff', '#5b66ff', '#ff4f8b', '#a974ff', '#c6ff4a'];
+  var MAXI = opts.maxInfected || 120;
+  var root = opts.root || document.body;
+  var dpr = Math.min(G.devicePixelRatio || 1, 2);
+  var cv = document.createElement('canvas');
+  cv.setAttribute('data-crawlspace', '');
+  cv.setAttribute('aria-hidden', 'true');
+  cv.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483646;';
+  document.body.appendChild(cv);
+  var ctx = cv.getContext('2d');
+  var VW = 0, VH = 0;
+  function resize() {
+    VW = G.innerWidth; VH = G.innerHeight;
+    cv.width = Math.round(VW * dpr); cv.height = Math.round(VH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  G.addEventListener('resize', resize);
+
+  var st = document.createElement('style');
+  st.setAttribute('data-crawlspace', '');
+  var MONO = '"Space Mono",ui-monospace,Menlo,Consolas,monospace';
+  st.textContent = [
+    '[data-cs]{transition:background-color .25s,color .25s,outline-color .25s;}',
+    '[data-cs].cs-box{outline:1px solid var(--cs-c)!important;outline-offset:1px;}',
+    '[data-cs].cs-hl{background:var(--cs-c)!important;color:#07060c!important;}',
+    '[data-cs].cs-mono{font-family:' + MONO + '!important;color:var(--cs-c)!important;font-size:1.3em!important;font-style:normal!important;}',
+    '[data-cs].cs-big{font-family:' + MONO + '!important;color:var(--cs-c)!important;font-size:1.9em!important;line-height:1!important;letter-spacing:-.02em;font-style:normal!important;}',
+    '[data-cs].cs-tilt{display:inline-block!important;background:var(--cs-c)!important;color:#07060c!important;transform:rotate(var(--cs-r));padding:0 .4em!important;}',
+    '[data-cs].cs-bar{background:var(--cs-c)!important;color:transparent!important;}'
+  ].join('');
+  document.head.appendChild(st);
+
+  var SEL = 'p,li,a,h1,h2,h3,h4,h5,td,th,dd,dt,cite,code,blockquote,figcaption,span,small,b,i,em,strong,label';
+  var cands = [], candT = -99, now = 0, paused = false;
+  var crawlers = [], threads = [], marks = [], infected = [], scrambles = [];
+  var bites = 0, idn = 0;
+
+  function okNode(n) {
+    var p = n.parentElement;
+    if (!p) return false;
+    if (p.closest('[data-cs],script,style,noscript,textarea,input,select,button,svg,[data-crawlspace-ui]')) return false;
+    return /\S/.test(n.nodeValue);
+  }
+  function refresh() {
+    cands = Array.prototype.filter.call(root.querySelectorAll(SEL), function (el) {
+      return !el.closest('[data-crawlspace-ui],[data-cs]');
+    });
+    candT = now;
+  }
+  function textNodes(el) {
+    var out = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), n;
+    while ((n = w.nextNode()) && out.length < 60) { if (okNode(n)) out.push(n); }
+    return out;
+  }
+  function pickTarget(c) {
+    if (!cands.length || now - candT > 4) refresh();
+    var sx = G.scrollX, sy = G.scrollY, best = null, bestS = 1e9;
+    for (var k = 0; k < 28 && cands.length; k++) {
+      var el = cands[(Math.random() * cands.length) | 0];
+      var r = el.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) continue;
+      if (r.bottom < -60 || r.top > VH + 60 || r.right < 0 || r.left > VW) continue;
+      var cx = r.left + r.width / 2 + sx, cy = r.top + r.height / 2 + sy;
+      var s = Math.hypot(cx - c.x, cy - c.y) * (0.5 + Math.random());
+      if (s < 30) s += 250;
+      if (s < bestS) { bestS = s; best = el; }
+    }
+    if (best) {
+      var tn = textNodes(best);
+      for (var t = 0; t < 4 && tn.length; t++) {
+        var node = tn[(Math.random() * tn.length) | 0];
+        var txt = node.nodeValue, words = [], re = /\S+/g, m;
+        while ((m = re.exec(txt)) && words.length < 200) words.push([m.index, m.index + m[0].length]);
+        if (!words.length) continue;
+        var i = (Math.random() * words.length) | 0;
+        var len = 1 + ((Math.random() * Math.random() * 4) | 0);
+        var j = Math.min(words.length - 1, i + len - 1);
+        var s0 = words[i][0], e0 = words[j][1];
+        if (e0 - s0 > 48) e0 = words[i][1];
+        var rg = document.createRange();
+        rg.setStart(node, s0); rg.setEnd(node, e0);
+        var rr = rg.getClientRects()[0];
+        if (!rr || rr.width < 1) continue;
+        return { x: rr.left + rr.width / 2 + sx, y: rr.top + rr.height / 2 + sy, node: node, s: s0, e: e0, txt: txt.slice(s0, e0), w: rr.width, h: rr.height };
+      }
+    }
+    return { x: sx + 40 + Math.random() * Math.max(1, VW - 80), y: sy + 40 + Math.random() * Math.max(1, VH - 80), node: null };
+  }
+
+  var FX = [['cs-box', 30], ['cs-hl', 18], ['cs-mono', 20], ['cs-big', 9], ['cs-tilt', 8], ['cs-bar', 7]];
+  function pickFx() {
+    var tot = 0, k;
+    for (k = 0; k < FX.length; k++) tot += FX[k][1];
+    var r = Math.random() * tot;
+    for (k = 0; k < FX.length; k++) { r -= FX[k][1]; if (r <= 0) return FX[k][0]; }
+    return FX[0][0];
+  }
+  function heal(inf) {
+    var sp = inf.span;
+    if (!sp.isConnected) return;
+    var p = sp.parentNode;
+    sp.replaceWith(document.createTextNode(inf.orig));
+    if (p) p.normalize();
+  }
+  function infect(c, tg) {
+    var n = tg.node;
+    if (!n || !n.isConnected || !n.parentElement || n.parentElement.closest('[data-cs]')) return false;
+    if (n.nodeValue.slice(tg.s, tg.e) !== tg.txt) return false;
+    var span = document.createElement('span');
+    span.setAttribute('data-cs', '');
+    var rg = document.createRange();
+    rg.setStart(n, tg.s); rg.setEnd(n, tg.e);
+    try { rg.surroundContents(span); } catch (err) { return false; }
+    var fx = pickFx();
+    span.style.setProperty('--cs-c', c.color);
+    span.style.setProperty('--cs-r', ((Math.random() * 50 - 25) | 0) + 'deg');
+    span.className = fx;
+    infected.push({ span: span, orig: tg.txt, die: now + 25 + Math.random() * 50 });
+    if (fx === 'cs-mono' || fx === 'cs-big' || Math.random() < 0.25) scrambles.push({ span: span, orig: tg.txt, t: 0, dur: 0.5 + Math.random() * 0.8 });
+    bites++;
+    while (infected.length > MAXI) heal(infected.shift());
+    return true;
+  }
+  var GL = '░▒▓<>/\\|_=+*#%&$@01ΔΣΛ';
+  function stepScrambles(dt) {
+    for (var k = scrambles.length - 1; k >= 0; k--) {
+      var s = scrambles[k];
+      s.t += dt;
+      var p = s.t / s.dur;
+      if (p >= 1 || !s.span.isConnected) {
+        if (s.span.isConnected) s.span.textContent = s.orig;
+        scrambles.splice(k, 1);
+        continue;
+      }
+      var o = s.orig, out = '', cut = (p * o.length) | 0;
+      for (var q = 0; q < o.length; q++) out += (q < cut || o[q] === ' ') ? o[q] : GL[(Math.random() * GL.length) | 0];
+      s.span.textContent = out;
+    }
+  }
+
+  function Crawler(x, y) {
+    this.x = x; this.y = y; this.vx = 0; this.vy = 0;
+    this.h = Math.random() * 6.283 - 3.14;
+    this.color = PAL[(Math.random() * PAL.length) | 0];
+    this.size = 3.2 + Math.random() * 3;
+    this.speed = 70 + Math.random() * 90;
+    this.seed = Math.random() * 20;
+    this.id = ('0' + (++idn)).slice(-2);
+    this.tg = null; this.state = 'walk'; this.wait = 0; this.stuck = 0;
+    this.anchor = { x: x, y: y };
+    this.reach = this.size * (5 + Math.random() * 2.5);
+    var mult = [1.15, 0.95, 0.9, 1.1];
+    this.legs = [];
+    for (var i = 0; i < 8; i++) {
+      var side = i < 4 ? 1 : -1, k = i % 4;
+      var ang = side * (0.5 + k * 0.7), r = this.reach * mult[k];
+      var fx = x + Math.cos(this.h + ang) * r, fy = y + Math.sin(this.h + ang) * r;
+      this.legs.push({ ang: ang, k: k, r: r, g: (k + (side > 0 ? 0 : 1)) % 2, fx: fx, fy: fy, sx: fx, sy: fy, tx: fx, ty: fy, t: 1 });
+    }
+  }
+  Crawler.prototype.arrive = function () {
+    var tg = this.tg;
+    this.state = 'bite';
+    this.wait = 0.5 + Math.random() * 1.2;
+    this.stuck = 0;
+    if (tg.node && infect(this, tg)) marks.push({ x: tg.x, y: tg.y, w: tg.w, h: tg.h, c: this.color, life: 1 });
+    threads.push({ x1: this.anchor.x, y1: this.anchor.y, x2: tg.x, y2: tg.y, c: this.color, life: 1, dur: 18 + Math.random() * 14 });
+    this.anchor = { x: tg.x, y: tg.y };
+  };
+  Crawler.prototype.update = function (dt) {
+    if (!this.tg) { this.tg = pickTarget(this); this.state = 'walk'; }
+    var dx = this.tg.x - this.x, dy = this.tg.y - this.y, d = Math.hypot(dx, dy);
+    if (this.state === 'walk') {
+      var sp = this.speed * Math.min(1, d / 60 + 0.15);
+      var a = Math.atan2(dy, dx) + Math.sin(now * 3 + this.seed) * 0.35 * Math.min(1, d / 120);
+      var kk = Math.min(1, dt * 4);
+      this.vx += (Math.cos(a) * sp - this.vx) * kk;
+      this.vy += (Math.sin(a) * sp - this.vy) * kk;
+      this.x += this.vx * dt; this.y += this.vy * dt;
+      if (d < 5) this.arrive();
+      this.stuck += dt;
+      if (this.stuck > 14) { this.tg = null; this.stuck = 0; }
+    } else {
+      this.vx *= 0.8; this.vy *= 0.8;
+      this.wait -= dt;
+      if (this.wait <= 0) this.tg = null;
+    }
+    if (Math.hypot(this.vx, this.vy) > 8) {
+      var vh = Math.atan2(this.vy, this.vx);
+      var dh = ((vh - this.h + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      this.h += dh * Math.min(1, dt * 6);
+      this.h = Math.atan2(Math.sin(this.h), Math.cos(this.h));
+    }
+    var stepping = [0, 0], i, l;
+    for (i = 0; i < 8; i++) if (this.legs[i].t < 1) stepping[this.legs[i].g]++;
+    for (i = 0; i < 8; i++) {
+      l = this.legs[i];
+      var la = this.h + l.ang;
+      var ix = this.x + Math.cos(la) * l.r + this.vx * 0.18;
+      var iy = this.y + Math.sin(la) * l.r + this.vy * 0.18;
+      if (l.t < 1) {
+        l.t = Math.min(1, l.t + dt / 0.085);
+        var e = l.t * l.t * (3 - 2 * l.t);
+        l.fx = l.sx + (l.tx - l.sx) * e;
+        l.fy = l.sy + (l.ty - l.sy) * e;
+      } else {
+        var fd = Math.hypot(ix - l.fx, iy - l.fy);
+        var twitch = this.state === 'bite' && Math.random() < dt * 2;
+        if ((fd > l.r * 0.5 && stepping[1 - l.g] === 0) || twitch) {
+          l.sx = l.fx; l.sy = l.fy;
+          l.tx = ix + this.vx * 0.08 + (twitch ? (Math.random() - 0.5) * 8 : 0);
+          l.ty = iy + this.vy * 0.08 + (twitch ? (Math.random() - 0.5) * 8 : 0);
+          l.t = 0;
+          stepping[l.g]++;
+        }
+      }
+    }
+  };
+  Crawler.prototype.draw = function (ox, oy) {
+    var x = this.x - ox, y = this.y - oy, s = this.size;
+    if (x < -120 || y < -120 || x > VW + 120 || y > VH + 120) return;
+    var ch = Math.cos(this.h), sh = Math.sin(this.h);
+    ctx.strokeStyle = this.color; ctx.fillStyle = this.color; ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.4;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(this.anchor.x - ox, this.anchor.y - oy); ctx.lineTo(x, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 0.95;
+    for (var i = 0; i < 8; i++) {
+      var l = this.legs[i];
+      var fx = l.fx - ox, fy = l.fy - oy;
+      var dx = fx - x, dy = fy - y, d = Math.hypot(dx, dy) || 1;
+      var L = l.r * 0.62;
+      var hk = d < 2 * L ? Math.sqrt(L * L - d * d / 4) * 0.6 : 0;
+      var px = -dy / d, py = dx / d;
+      var dot = px * ch + py * sh;
+      var sgn = (dot < 0 ? -1 : 1) * (l.k < 2 ? 1 : -1);
+      var kx = x + dx / 2 + px * hk * sgn, ky = y + dy / 2 + py * hk * sgn;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+      ctx.fillRect(kx - 1, ky - 1, 2, 2);
+      ctx.fillRect(fx - 1.5, fy - 1.5, 3, 3);
+    }
+    ctx.beginPath(); ctx.arc(x - ch * s * 1.4, y - sh * s * 1.4, s * 1.15, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, s * 0.72, 0, 6.2832); ctx.fill();
+    if (this.state === 'bite') {
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath(); ctx.arc(x, y, s * 2.6 + Math.sin(now * 18) * 1.5, 0, 6.2832); ctx.stroke();
+    }
+    ctx.globalAlpha = 0.8;
+    ctx.font = '9px ' + MONO;
+    ctx.fillText('c' + this.id, x + s * 2 + 6, y - s * 2 - 2);
+    ctx.globalAlpha = 1;
+  };
+
+  function draw() {
+    ctx.clearRect(0, 0, VW, VH);
+    var ox = G.scrollX, oy = G.scrollY, k, t;
+    ctx.lineWidth = 1;
+    for (k = 0; k < threads.length; k++) {
+      t = threads[k];
+      ctx.globalAlpha = t.life * 0.55;
+      ctx.strokeStyle = t.c; ctx.fillStyle = t.c;
+      ctx.beginPath(); ctx.moveTo(t.x1 - ox, t.y1 - oy); ctx.lineTo(t.x2 - ox, t.y2 - oy); ctx.stroke();
+      ctx.fillRect(t.x2 - ox - 2, t.y2 - oy - 2, 4, 4);
+    }
+    for (k = 0; k < marks.length; k++) {
+      var m = marks[k], grow = (1 - m.life) * 10;
+      ctx.globalAlpha = m.life;
+      ctx.strokeStyle = m.c;
+      ctx.strokeRect(m.x - ox - m.w / 2 - grow, m.y - oy - m.h / 2 - grow, m.w + grow * 2, m.h + grow * 2);
+    }
+    ctx.globalAlpha = 1;
+    for (k = 0; k < crawlers.length; k++) crawlers[k].draw(ox, oy);
+  }
+
+  var last = performance.now(), raf = 0, healT = 0, statT = 0;
+  function frame(ts) {
+    var dt = Math.min(0.05, (ts - last) / 1000);
+    last = ts;
+    if (!paused) {
+      now += dt;
+      for (var k = 0; k < crawlers.length; k++) crawlers[k].update(dt);
+      stepScrambles(dt);
+      threads = threads.filter(function (t) { t.life -= dt / t.dur; return t.life > 0; });
+      marks = marks.filter(function (m) { m.life -= dt / 0.7; return m.life > 0; });
+      healT += dt;
+      if (healT > 1) {
+        healT = 0;
+        infected = infected.filter(function (inf) { if (inf.die < now) { heal(inf); return false; } return true; });
+      }
+    }
+    draw();
+    statT += dt;
+    if (opts.onStats && statT > 0.25) { statT = 0; opts.onStats(api.stats()); }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function add(n, x, y) {
+    for (var i = 0; i < (n || 1); i++) {
+      var px = x != null ? x + (Math.random() - 0.5) * 20 : G.scrollX + 60 + Math.random() * Math.max(1, VW - 120);
+      var py = y != null ? y + (Math.random() - 0.5) * 20 : G.scrollY + 80 + Math.random() * Math.max(1, VH - 160);
+      crawlers.push(new Crawler(px, py));
+    }
+  }
+  function healAll() {
+    infected.slice().forEach(heal);
+    infected = []; scrambles = []; threads = []; marks = [];
+  }
+  function onKey(e) { if (e.key === 'Escape') destroy(); }
+  function destroy() {
+    cancelAnimationFrame(raf);
+    crawlers = []; healAll();
+    cv.remove(); st.remove();
+    G.removeEventListener('resize', resize);
+    G.removeEventListener('keydown', onKey);
+    api.alive = false;
+    G.__crawlspace = null;
+  }
+  if (opts.esc !== false) G.addEventListener('keydown', onKey);
+  var api = {
+    alive: true,
+    add: add,
+    heal: healAll,
+    clear: function () { crawlers = []; healAll(); },
+    destroy: destroy,
+    setPaused: function (p) { paused = !!p; },
+    stats: function () { return { crawlers: crawlers.length, bites: bites, infected: infected.length }; }
+  };
+  G.__crawlspace = api;
+  add(opts.start == null ? 5 : opts.start);
+  raf = requestAnimationFrame(frame);
+  return api;
+}
+
+(function () {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var readout = document.getElementById('readout');
+  function pad(n, w) { n = String(n); while (n.length < w) n = '0' + n; return n; }
+  var cs = Crawlspace({
+    root: document.getElementById('specimen'),
+    start: reduce ? 0 : 4,
+    esc: false,
+    onStats: function (s) {
+      readout.innerHTML = '<em>' + pad(s.crawlers, 2) + '</em> crawlers · <em>' + pad(s.bites, 3) + '</em> bites';
+    }
+  });
+  var pauseBtn = document.getElementById('b-pause');
+  document.getElementById('b-one').addEventListener('click', function () { cs.add(1); });
+  document.getElementById('b-swarm').addEventListener('click', function () { cs.add(5); });
+  document.getElementById('b-heal').addEventListener('click', function () { cs.heal(); });
+  document.getElementById('b-clear').addEventListener('click', function () { cs.clear(); });
+  pauseBtn.addEventListener('click', function () {
+    var p = pauseBtn.getAttribute('aria-pressed') !== 'true';
+    pauseBtn.setAttribute('aria-pressed', String(p));
+    pauseBtn.textContent = p ? 'Resume' : 'Pause';
+    cs.setPaused(p);
+  });
+  document.getElementById('specimen').addEventListener('click', function (e) {
+    if (e.target.closest('a')) e.preventDefault();
+    cs.add(1, e.pageX, e.pageY);
+  });
+
+  var src = '(' + Crawlspace.toString().replace(/\n\s+/g, '\n') + ')()';
+  var bm = 'javascript:' + encodeURIComponent(src);
+  var ta = document.getElementById('bm-code');
+  ta.value = bm;
+  var link = document.getElementById('bm-link');
+  link.setAttribute('href', bm);
+  link.addEventListener('click', function (e) { e.preventDefault(); cs.add(5); });
+  var status = document.getElementById('copy-status');
+  document.getElementById('b-copy').addEventListener('click', function () {
+    var done = function () { status.textContent = 'Copied. Paste it as a bookmark URL.'; };
+    try {
+      navigator.clipboard.writeText(bm).then(done, function () { ta.focus(); ta.select(); status.textContent = 'Selected. Press Ctrl+C to copy.'; });
+    } catch (err) { ta.focus(); ta.select(); status.textContent = 'Selected. Press Ctrl+C to copy.'; }
+  });
+})();
+</script>
+
+</body></html>
