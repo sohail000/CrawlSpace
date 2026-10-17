@@ -1,7 +1,7 @@
 // A procedural spider body: eight IK legs with alternating gait, walking along a list of waypoints.
 // Waypoints are live objects with x/y (graph nodes move), so the spider follows them as they drift.
 
-export class SpiderBody {
+class SpiderBody {
   constructor(x, y, { color = '#ff2bd6', size = 4, speed = 150 } = {}) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
     this.h = Math.random() * 6.283 - 3.14;
@@ -116,5 +116,5 @@ export class SpiderBody {
   }
 }
 
-export const PALETTE = ['#ff2bd6', '#25e2ff', '#c6ff4a', '#ffb02e', '#a974ff', '#5b9dff'];
-export const GLYPHS = '░▒▓<>/\\|_=+*#%&$@01ΔΣΛ';
+const HUNTER_COLORS = ['#ff2bd6', '#c6ff4a', '#ffb02e', '#a974ff', '#5b9dff'];
+const GLYPHS = '░▒▓<>/\\|_=+*#%&$@01ΔΣΛ';
