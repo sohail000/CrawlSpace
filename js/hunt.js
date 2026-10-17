@@ -14,6 +14,40 @@ const normTitle = (t) => {
 const hubness = (bytes) => (bytes ? Math.max(0, Math.min(1, (Math.log10(bytes) - 4) / 1.4)) : 0);
 const spread = (arr, n) => (arr.length <= n ? arr.slice() : Array.from({ length: n }, (_, i) => arr[Math.floor((i * arr.length) / n)]));
 
+// What the visitor typed may be a link. A Wikipedia link names its article (in any language).
+// Any other link gives a search phrase: the words of its last meaningful path segment, or the site's name.
+const GENERIC_SEGMENTS = new Set(('index home default main wiki w watch article articles story stories news post posts p blog ' +
+  'blogs en us uk amp page pages item items product products dp gp search results tag tags category categories topic topics ' +
+  'video videos status r comments u user users profile about html').split(' '));
+const SECOND_LEVEL = new Set('co com org net gov edu ac'.split(' '));
+
+function readLink(input) {
+  const s = String(input || '').trim();
+  if (!/^https?:\/\//i.test(s) && !/^www\./i.test(s) && !/^[\w-]+(\.[\w-]+)+\//.test(s)) return null;
+  let u;
+  try { u = new URL(/^https?:\/\//i.test(s) ? s : 'https://' + s); } catch { return null; }
+  const host = u.hostname.toLowerCase();
+  const site = host.replace(/^(www|m)\./, '');
+  const wp = host.match(/^([a-z][a-z-]{1,15})(?:\.m)?\.wikipedia\.org$/);
+  if (wp) {
+    let title = '';
+    try { title = u.pathname.startsWith('/wiki/') ? decodeURIComponent(u.pathname.slice(6)) : u.searchParams.get('title') || ''; } catch {}
+    title = title.replace(/_/g, ' ').trim();
+    return title ? { lang: wp[1], title } : null;
+  }
+  for (const seg of u.pathname.split('/').filter(Boolean).reverse()) {
+    let w;
+    try { w = decodeURIComponent(seg); } catch { continue; }
+    const words = w.replace(/\.[a-z]{2,5}$/i, '').split(/[-_+.~\s]+/).filter((t) => t && !/\d/.test(t));
+    if (words.join('').length >= 3 && !(words.length === 1 && GENERIC_SEGMENTS.has(words[0].toLowerCase()))) return { query: words.join(' '), site };
+  }
+  const labels = host.split('.');
+  labels.pop(); // the top-level domain
+  while (labels.length > 1 && SECOND_LEVEL.has(labels[labels.length - 1])) labels.pop();
+  const name = labels[labels.length - 1];
+  return name && name !== 'www' ? { query: name, site } : null;
+}
+
 // Estimated hops still to go from a candidate page to the target (lower is better).
 function estimate(c) {
   if (c.heat === 1) return 1;     // Wikipedia confirmed: this page links to the target
@@ -93,20 +127,38 @@ class Hunt {
     this.emit('end', { found: false, reason: 'stopped', stats: this.snapshot() });
   }
 
+  // Turn what was typed (a name, a Wikipedia link in any language, or any other link) into two English articles.
   async resolveEnds() {
     const opts = { signal: this.abort.signal };
-    const looked = await this.wiki.lookup([this.from, this.to], opts);
+    const ends = [];
+    for (const raw of [this.from, this.to]) {
+      const link = readLink(raw);
+      if (link?.lang && link.lang !== 'en') {
+        const en = await this.wiki.englishTitle(link.lang, link.title, opts);
+        if (!en) throw new Error(`"${link.title}" has no English Wikipedia article yet. Try typing the topic instead.`);
+        ends.push({ text: en, note: `Followed your ${link.lang}.wikipedia.org link to the English article "${en}".` });
+      } else if (link?.title) ends.push({ text: link.title, note: '' });
+      else if (link?.query) ends.push({ text: link.query, site: link.site, note: '' });
+      else if (/^\w+:\/\//.test(String(raw).trim())) throw new Error("Couldn't read that link. Paste a web address, or just type the topic.");
+      else ends.push({ text: String(raw).trim(), note: '' });
+    }
+    const looked = await this.wiki.lookup(ends.map((x) => x.text), opts);
     const out = [];
-    for (const r of looked) {
-      let pick = r, note = '';
+    for (let i = 0; i < 2; i++) {
+      const r = looked[i], end = ends[i];
+      let pick = r, note = end.note;
       if (r.missing || r.ambiguous) {
         const hits = (await this.wiki.search(r.input, opts)).filter((t) => t !== r.title);
         const checked = hits.length ? await this.wiki.lookup(hits, opts) : [];
         const ok = checked.find((c) => !c.missing && !c.ambiguous);
-        if (!ok) throw new Error(r.missing ? `Wikipedia has no article called "${r.input}".` : `"${r.input}" means too many things. Try something more specific.`);
-        note = r.ambiguous ? `"${r.input}" has several meanings, so the spiders took ${ok.title}.` : `No page is called "${r.input}", so the spiders took ${ok.title}.`;
+        if (!ok) {
+          throw new Error(end.site ? `Couldn't find a Wikipedia article for that ${end.site} link. Try typing the topic instead.`
+            : r.missing ? `Wikipedia has no article called "${r.input}".` : `"${r.input}" means too many things. Try something more specific.`);
+        }
+        if (!end.site) note = r.ambiguous ? `"${r.input}" has several meanings, so the spiders took ${ok.title}.` : `No page is called "${r.input}", so the spiders took ${ok.title}.`;
         pick = ok;
       }
+      if (end.site) note = `Crawlspace hunts inside Wikipedia, so from your ${end.site} link it took "${pick.title}".`;
       out.push({ title: pick.title, description: pick.description, input: r.input, note, url: wikiUrl(pick.title) });
     }
     if (out[0].title === out[1].title) throw new Error('Those are the same page. Pick two different things.');

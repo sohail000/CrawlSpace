@@ -316,7 +316,7 @@ for (const [input, list] of [[$('from'), $('sugg-from')], [$('to'), $('sugg-to')
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const q = input.value.trim();
-    if (q.length < 2 || q === last) return;
+    if (q.length < 2 || q === last || /^(https?:\/\/|www\.)|\.\w+\//i.test(q)) return; // links are resolved when the hunt starts
     timer = setTimeout(async () => {
       last = q;
       try {

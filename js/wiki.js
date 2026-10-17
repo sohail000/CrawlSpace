@@ -53,8 +53,8 @@ class Wiki {
     this.count = 0;
   }
 
-  async api(params, { signal, onWait, what = params.action } = {}) {
-    const url = WIKI_API + '?' + new URLSearchParams({ format: 'json', formatversion: '2', origin: '*', ...params });
+  async api(params, { signal, onWait, what = params.action, base = WIKI_API } = {}) {
+    const url = base + '?' + new URLSearchParams({ format: 'json', formatversion: '2', origin: '*', ...params });
     for (let attempt = 0; ; attempt++) {
       const release = await this.gov.slot(onWait);
       if (signal?.aborted) { release(); throw abortError(); }
@@ -114,6 +114,13 @@ class Wiki {
         ambiguous: Boolean(p.pageprops && 'disambiguation' in p.pageprops),
       };
     });
+  }
+
+  // A page on another language's Wikipedia: follow its interlanguage link to the English article.
+  async englishTitle(lang, title, opts) {
+    const d = await this.api({ action: 'query', titles: title, prop: 'langlinks', lllang: 'en', redirects: '1' },
+      { ...opts, what: `find ${lang}:${title} in English`, base: `https://${lang}.wikipedia.org/w/api.php` });
+    return d.query?.pages?.[0]?.langlinks?.[0]?.title || null;
   }
 
   async search(text, opts) {

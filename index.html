@@ -24,9 +24,9 @@
 <header class="bar">
   <a class="brand" href="./"><b>CRAWLSPACE</b><span>find the thread between any two things</span></a>
   <form id="hunt" class="hunt" autocomplete="off">
-    <label class="end from"><span>from</span><input id="from" list="sugg-from" placeholder="Pizza" required maxlength="200" spellcheck="false" aria-label="From"></label>
+    <label class="end from"><span>from</span><input id="from" list="sugg-from" placeholder="Pizza, or paste a link" required maxlength="2000" spellcheck="false" aria-label="From: a topic or a link"></label>
     <button type="button" id="swap" class="icon" title="Swap the two ends" aria-label="Swap the two ends">⇄</button>
-    <label class="end to"><span>to</span><input id="to" list="sugg-to" placeholder="Moon" required maxlength="200" spellcheck="false" aria-label="To"></label>
+    <label class="end to"><span>to</span><input id="to" list="sugg-to" placeholder="Moon, or paste a link" required maxlength="2000" spellcheck="false" aria-label="To: a topic or a link"></label>
     <button type="submit" class="primary" id="go">Release the spiders</button>
     <button type="button" id="stop" hidden>Stop</button>
     <button type="button" id="surprise">Surprise me</button>
@@ -53,7 +53,7 @@
       <div class="tip" id="tip" hidden></div>
       <div class="intro" id="intro">
         <h1>How is anything connected to&nbsp;anything?</h1>
-        <p>Name two things. Spiders crawl the real, live Wikipedia to find the chain of links between them, and bite out the exact sentence behind every step.</p>
+        <p>Name two things, or paste two links. Spiders crawl the real, live Wikipedia to find the chain of links between them, and bite out the exact sentence behind every step.</p>
         <p class="examples">
           <button type="button" data-from="Pizza" data-to="Moon">Pizza → the Moon</button>
           <button type="button" data-from="Michael Jordan" data-to="Octopus">Michael Jordan → Octopus</button>
