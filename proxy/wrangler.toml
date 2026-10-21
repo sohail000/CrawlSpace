@@ -1,0 +1,7 @@
+name = "crawlspace-proxy"
+main = "worker.js"
+compatibility_date = "2025-06-01"
+
+[vars]
+# Pages allowed to use this proxy (comma-separated). "null" covers the site opened straight from a file.
+ALLOWED_ORIGINS = "https://sohail000.github.io,http://localhost,http://127.0.0.1,null"

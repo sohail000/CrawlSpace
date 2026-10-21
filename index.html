@@ -3,115 +3,88 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Crawlspace</title>
-<meta name="description" content="Name any two things. Spiders crawl live Wikipedia to find the chain of links between them, and bite out the exact sentence behind every step.">
-<meta property="og:title" content="Crawlspace: find the thread between any two things">
-<meta property="og:description" content="Spiders crawl live Wikipedia to connect any two things, with the exact sentence behind every step. No AI, nothing made up.">
+<title>Crawlspace · watch spiders crawl any web page</title>
+<meta name="description" content="Paste a web address. Five specialised spiders crawl the page on stage and catch its links, tables, emails and phone numbers, images and text, ready to export.">
+<meta property="og:title" content="Crawlspace: watch spiders crawl any web page">
+<meta property="og:description" content="Five specialised spiders catch links, tables, patterns, images and text from any page, live, ready to export.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://sohail000.github.io/CrawlSpace/assets/preview.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#08070d">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cg stroke='%23ff2bd6' stroke-width='2' fill='none' stroke-linecap='round'%3E%3Cpath d='M16 16 7 9M16 16 6 16M16 16 7 23M16 16 25 9M16 16 26 16M16 16 25 23M7 9 4 4M25 9 28 4M7 23 4 28M25 23 28 28'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='4.5' fill='%23ff2bd6'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#0b0d12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cg stroke='%23ffcc4d' stroke-width='2' fill='none' stroke-linecap='round'%3E%3Cpath d='M16 16 7 9M16 16 6 16M16 16 7 23M16 16 25 9M16 16 26 16M16 16 25 23M7 9 4 4M25 9 28 4M7 23 4 28M25 23 28 28'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='4.5' fill='%23ffcc4d'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://en.wikipedia.org" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="bar">
-  <a class="brand" href="./"><b>CRAWLSPACE</b><span>find the thread between any two things</span></a>
-  <form id="hunt" class="hunt" autocomplete="off">
-    <label class="end from"><span>from</span><input id="from" list="sugg-from" placeholder="Pizza, or paste a link" required maxlength="2000" spellcheck="false" aria-label="From: a topic or a link"></label>
-    <button type="button" id="swap" class="icon" title="Swap the two ends" aria-label="Swap the two ends">⇄</button>
-    <label class="end to"><span>to</span><input id="to" list="sugg-to" placeholder="Moon, or paste a link" required maxlength="2000" spellcheck="false" aria-label="To: a topic or a link"></label>
-    <button type="submit" class="primary" id="go">Release the spiders</button>
-    <button type="button" id="stop" hidden>Stop</button>
-    <button type="button" id="surprise">Surprise me</button>
+<header class="top">
+  <a class="brand" href="./"><svg viewBox="0 0 32 32" aria-hidden="true"><g stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"><path d="M16 16 7 9M16 16 6 16M16 16 7 23M16 16 25 9M16 16 26 16M16 16 25 23M7 9 4 4M25 9 28 4M7 23 4 28M25 23 28 28"/></g><circle cx="16" cy="16" r="4.5" fill="currentColor"/></svg><b>Crawlspace</b></a>
+  <form id="go" class="address" autocomplete="off">
+    <input id="url" type="text" inputmode="url" placeholder="Paste a web address, e.g. en.wikipedia.org/wiki/Spider" spellcheck="false" aria-label="Web address">
+    <button type="submit" class="primary">Load page</button>
   </form>
-  <datalist id="sugg-from"></datalist>
-  <datalist id="sugg-to"></datalist>
+  <span class="pill" id="proxy" title="">checking…</span>
 </header>
 
-<div class="hud" id="hud">
-  <span><em id="h-reads">00</em>/<span id="h-max">50</span> pages read</span>
-  <span><em id="h-links">0</em> links smelled</span>
-  <span class="opt"><em id="h-mapped">0</em> pages mapped near the target</span>
-  <span class="opt"><em id="h-req">0</em> requests</span>
-  <span><em id="h-time">0.0</em>s</span>
-  <button type="button" id="speed" class="speed" title="Playback speed">1×</button>
-  <span class="phase" id="phase">ready</span>
-</div>
+<section class="dockbar">
+  <div class="dock" id="dock"></div>
+  <div class="launch">
+    <label class="scope">Crawl
+      <select id="scope" aria-label="How much to crawl">
+        <option value="page">this page</option>
+        <option value="5">this site, up to 5 pages</option>
+        <option value="10">this site, up to 10 pages</option>
+        <option value="25">this site, up to 25 pages</option>
+      </select>
+    </label>
+    <button id="release" class="primary big" disabled>Release spiders</button>
+    <div class="runctl">
+      <button id="speed" title="Animation speed">1×</button>
+      <button id="skip" title="Finish the animations instantly">Skip</button>
+      <button id="stop">Stop</button>
+    </div>
+  </div>
+</section>
 
-<main class="stage">
-  <section class="panel web" aria-label="The web: live map of the hunt">
-    <div class="ph"><b>THE WEB</b><span>nodes are real Wikipedia pages · threads are real links · cyan leads to the target</span></div>
-    <div class="canvas-wrap">
-      <canvas id="web" aria-hidden="true"></canvas>
-      <div class="tip" id="tip" hidden></div>
-      <div class="intro" id="intro">
-        <h1>How is anything connected to&nbsp;anything?</h1>
-        <p>Name two things, or paste two links. Spiders crawl the real, live Wikipedia to find the chain of links between them, and bite out the exact sentence behind every step.</p>
-        <p class="examples">
-          <button type="button" data-from="Pizza" data-to="Moon">Pizza → the Moon</button>
-          <button type="button" data-from="Michael Jordan" data-to="Octopus">Michael Jordan → Octopus</button>
-          <button type="button" data-from="Minecraft" data-to="Ancient Egypt">Minecraft → Ancient Egypt</button>
-          <button type="button" data-from="Taylor Swift" data-to="Black Death">Taylor Swift → the Black Death</button>
-        </p>
-        <p class="fine">Every spider is a real request to Wikipedia. Every thread is a real link. Nothing is made up, and there is no AI involved.</p>
+<main class="main">
+  <section class="stagebox" id="stagebox">
+    <div class="pagebar" id="pagebar"><b>No page on stage</b></div>
+    <div class="stage" id="stage">
+      <iframe id="frame" title="The page on stage" sandbox="allow-same-origin" referrerpolicy="no-referrer"></iframe>
+      <canvas id="overlay" aria-hidden="true"></canvas>
+      <div class="caption" id="caption" hidden></div>
+      <div class="empty" id="empty">
+        <h1>Put any web page on stage.</h1>
+        <p>Paste a web address above. Five spiders, each with one job, crawl the page in front of you and catch its links, tables, patterns, images and text, ready to export.</p>
+        <div class="examples">
+          <button data-url="https://en.wikipedia.org/wiki/List_of_largest_cities">Wikipedia: largest cities <small>tables</small></button>
+          <button data-url="https://en.wikipedia.org/wiki/Spider">Wikipedia: Spider <small>images and text</small></button>
+          <button data-url="https://books.toscrape.com/" data-needs-proxy hidden>books.toscrape.com <small>prices</small></button>
+          <button data-url="https://quotes.toscrape.com/" data-needs-proxy hidden>quotes.toscrape.com <small>links</small></button>
+        </div>
       </div>
-      <ul class="legend" aria-hidden="true">
-        <li><i class="lg dot"></i>link to follow</li>
-        <li><i class="lg cy"></i>leads to the target</li>
-        <li><i class="lg ring"></i>being read</li>
-        <li><i class="lg fill"></i>read</li>
-        <li><i class="lg x"></i>dead end</li>
-      </ul>
+      <div class="loader" aria-hidden="true"></div>
     </div>
   </section>
 
-  <section class="panel specimen" id="spec-pane" aria-label="Specimen: the page being read">
-    <div class="ph spec-head">
-      <div class="spec-title">
-        <b id="spec-title">No page yet</b>
-        <a id="spec-url" target="_blank" rel="noopener noreferrer"></a>
-        <span id="spec-meta" class="meta">Pages appear here the moment a spider starts reading them.</span>
-      </div>
-      <button type="button" id="spec-follow" class="chip" hidden>Follow live</button>
-    </div>
-    <div class="spec-body">
-      <div class="spec-scroll" id="spec-scroll">
-        <div class="spec-empty" id="spec-empty">The page a spider is reading shows up here as clean text, with every link underlined. Highlighted sentences are the ones holding the links it chose to follow.</div>
-        <article id="spec-article"></article>
-      </div>
-      <canvas id="spec-canvas" aria-hidden="true"></canvas>
-    </div>
-  </section>
-
-  <section class="panel drawer" aria-label="The bridge and the log">
-    <div class="tabs" role="tablist">
-      <button role="tab" aria-selected="true" data-tab="trail">The bridge</button>
-      <button role="tab" aria-selected="false" data-tab="log">Log <em id="c-log">0</em></button>
-    </div>
-    <div class="tabpane" data-pane="trail"><div id="trail" class="trail"><p class="none">When the spiders find a way across, every step shows up here with the sentence that proves it.</p></div></div>
-    <div class="tabpane" data-pane="log" hidden><ol id="log" class="log"></ol></div>
-  </section>
+  <aside class="results">
+    <nav class="rtabs" id="rtabs" aria-label="Results by spider"></nav>
+    <div class="rbody" id="rbody"></div>
+  </aside>
 </main>
 
 <footer class="foot">
-  Text and links from <a href="https://en.wikipedia.org/" target="_blank" rel="noopener">Wikipedia</a>
-  (<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), read live by your browser.
-  No account, no key, no server. · <a href="Crawlspace.html">The original Crawlspace toy</a> · <a href="https://github.com/sohail000/CrawlSpace" target="_blank" rel="noopener">Source</a>
+  <span id="status">Paste a web address to begin.</span>
+  <span class="credit">Pages are fetched politely (robots.txt respected) and shown without their scripts. · <a href="https://github.com/sohail000/CrawlSpace" target="_blank" rel="noopener">Source</a></span>
 </footer>
+<div class="toast" id="toast" hidden></div>
 
-<script src="js/text.js"></script>
-<script src="js/wiki.js"></script>
-<script src="js/hunt.js"></script>
+<script src="js/extract.js"></script>
+<script src="js/fetcher.js"></script>
 <script src="js/spider.js"></script>
-<script src="js/web.js"></script>
-<script src="js/specimen.js"></script>
+<script src="js/stage.js"></script>
+<script src="js/results.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,9 @@
+{
+  "name": "crawlspace-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "deploy": "npx wrangler deploy"
+  }
+}
