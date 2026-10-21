@@ -49,7 +49,7 @@ npx wrangler login
 npx wrangler deploy
 ```
 
-Copy the `https://crawlspace-proxy.<you>.workers.dev` address it prints into `PROXY_URL` at the top of `js/fetcher.js`, and push.
+Copy the `workers.dev` address it prints into `PROXY_URL` at the top of `js/fetcher.js`, and push. (The live site uses `https://crawlspace-proxy.crawlspace-proxy.workers.dev`.)
 
 ## Files
 

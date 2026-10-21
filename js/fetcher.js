@@ -2,7 +2,7 @@
 // (proxy/worker.js). Wikipedia is the exception: its API allows browsers in, so it works with no proxy at all.
 
 // The deployed proxy's address (see README). Empty = Wikipedia only, unless a local proxy is running.
-const PROXY_URL = '';
+const PROXY_URL = 'https://crawlspace-proxy.crawlspace-proxy.workers.dev';
 const LOCAL_PROXY = 'http://127.0.0.1:8787';
 
 const Fetcher = {
