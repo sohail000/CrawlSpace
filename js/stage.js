@@ -119,9 +119,13 @@ class Stage {
       this.effects.push({ type: 'drop', x0: sp.x, y0: sp.y, x1: x, y1: y - 40, color: sp.color, born: this.now });
       sp.teleport(x, y - 40);
     }
-    if (how === 'jump') sp.jump(x, y, 0.42);
-    else {
-      sp.speedMul = Math.max(1, Math.hypot(x - sp.x, y - sp.y) / (sp.speed * (how === 'sprint' ? 0.35 : 0.75)));
+    const far = Math.hypot(x - sp.x, y - sp.y);
+    if (how === 'jump') {
+      await this.wait(0.18); // crouch and aim before the leap
+      sp.jump(x, y, Math.min(0.9, 0.5 + far / 1000));
+    } else {
+      // Walk at the species' own pace; only hurry on long trips, so none takes more than ~1.5s at 1×.
+      sp.speedMul = Math.max(1, far / (sp.speed * (how === 'sprint' ? 0.9 : 1.5)));
       sp.walk([{ x, y }]);
     }
     await this.until(() => !sp.moving);
@@ -134,7 +138,7 @@ class Stage {
     this.spiders.push(sp);
     this.track = sp;
     this.vibColor = def.color;
-    const full = this.speed >= 4 ? 8 : this.speed >= 2 ? 16 : 26;
+    const full = this.speed >= 4 ? 8 : this.speed >= 2 ? 14 : 20;
     const quick = Math.min(0.025, 2.5 / Math.max(1, items.length - full)); // the rest arrive within ~2.5s
     for (let i = 0; i < items.length && !this.stopped; i++) {
       const it = items[i];
@@ -159,7 +163,7 @@ class Stage {
     this.marks.push(mark);
     this.last.links = mark;
     this.vibrate(0.5, def.color);
-    if (animate) await this.wait(0.1);
+    if (animate) await this.wait(0.3);
   }
 
   // Funnel-web: traces the table's edge in silk, wraps it, and sends the bundle to the results.
@@ -191,7 +195,7 @@ class Stage {
     this.marks.push({ type: 'bite', target: it.target, color: def.color, born: this.now });
     if (animate) this.effects.push({ type: 'burst', x: r.x + r.w / 2, y: r.y + r.h / 2, color: def.color, born: this.now });
     this.vibrate(1, def.color);
-    if (animate) await this.wait(0.12);
+    if (animate) await this.wait(0.35);
   }
 
   // Huntsman: sprints to each image and tags it with its alt-text state.
@@ -201,7 +205,7 @@ class Stage {
     if (animate) await this.go(sp, r.x + 8, r.y + 8, 'sprint');
     this.marks.push({ type: 'tag', target: it.el, item: it, color: def.color, born: this.now });
     this.vibrate(0.8, def.color);
-    if (animate) await this.wait(0.1);
+    if (animate) await this.wait(0.3);
   }
 
   // Reader: walks down the margin of each block of text it keeps.
