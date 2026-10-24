@@ -98,6 +98,7 @@ async function load(text) {
   if (state.running) stopRun();
   $('url').value = url;
   $('empty').hidden = true;
+  showNotice(null);
   $('stagebox').classList.add('loading');
   status('Fetching the page…');
   try {
@@ -107,7 +108,9 @@ async function load(text) {
     results.reset();
     pageBar(page);
     scan();
-    status(`Page on stage. Pick your spiders and release them.`);
+    const shell = isShell(page, stage.doc);
+    showNotice(shell && `<b>${esc(new URL(page.url).hostname.replace(/^www\./, ''))} builds this page with JavaScript.</b>It sends an empty shell first, then fills it in with scripts, and Crawlspace shows pages without their scripts. So there’s little here for the spiders, and waiting won’t change that. Pages written in plain HTML work best: news articles, blogs, docs, shops, Wikipedia.`);
+    status(shell ? 'Page on stage, but it is mostly empty without its scripts.' : `Page on stage. Pick your spiders and release them.`);
     history.replaceState(null, '', '#' + page.url);
   } catch (e) {
     status(e.message, true);
@@ -116,6 +119,26 @@ async function load(text) {
     $('stagebox').classList.remove('loading');
     updateRelease();
   }
+}
+
+// A page that is an empty shell until its scripts run (YouTube, many web apps): almost no visible text,
+// and the HTML is mostly script or has an empty app root.
+function isShell(page, doc) {
+  if (!doc) return false;
+  const words = extractText(doc, page.url).words;
+  if (words >= 80) return false;
+  const html = page.html;
+  const scripts = (html.match(/<script\b/gi) || []).length;
+  const scriptBytes = (html.match(/<script\b[\s\S]*?<\/script>/gi) || []).reduce((n, s) => n + s.length, 0);
+  return scriptBytes > html.length * 0.3 || scripts >= 8 || /<div[^>]+id=["'](root|app|__next|__nuxt)["'][^>]*>\s*<\/div>/i.test(html);
+}
+
+function showNotice(html) {
+  const n = $('notice');
+  n.hidden = !html;
+  if (!html) return;
+  n.innerHTML = html + '<button type="button" aria-label="Dismiss">×</button>';
+  n.querySelector('button').onclick = () => { n.hidden = true; };
 }
 
 function pageBar(p) {

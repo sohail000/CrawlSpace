@@ -89,6 +89,13 @@ body:not(.running) #skip, body:not(.running) #stop { display: none; }
 .caption i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
 .caption b { color: var(--c); }
 .caption span { overflow: hidden; text-overflow: ellipsis; }
+.notice {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 3; width: min(560px, calc(100% - 28px));
+  background: rgba(11, 13, 18, .95); color: var(--text); border: 1px solid #ffcc4d; border-radius: 12px;
+  padding: 12px 40px 12px 16px; font-size: 13.5px; line-height: 1.5; box-shadow: 0 10px 34px rgba(0, 0, 0, .4);
+}
+.notice b { display: block; color: #ffcc4d; margin-bottom: 3px; font-size: 14px; }
+.notice button { position: absolute; top: 6px; right: 6px; padding: 2px 9px; font-size: 16px; line-height: 1.4; }
 .empty {
   position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center; padding: 30px; background: radial-gradient(ellipse at center, #171b26 0%, var(--panel) 70%);
