@@ -7,6 +7,7 @@ const SPECIES = {
   jumping:  { size: 4.5, legs: 0.7,  legWidth: 1.6, abdomen: 1.1, head: 1.0,  speed: 140, eyes: true },
   huntsman: { size: 4.5, legs: 1.7,  legWidth: 1.1, abdomen: 1.0, head: 0.8,  speed: 420 },
   reader:   { size: 3.6, legs: 0.95, legWidth: 1.0, abdomen: 1.2, head: 0.7,  speed: 200 },
+  mimic:    { size: 4.2, legs: 1.25, legWidth: 1.2, abdomen: 1.45, head: 0.75, speed: 190, spots: true },
 };
 
 class SpiderBody {
@@ -158,6 +159,14 @@ class SpiderBody {
         const bx = ax + ch * s * k * sp.abdomen, by = ay + sh * s * k * sp.abdomen;
         ctx.beginPath(); ctx.moveTo(bx - sh * s * 0.8, by + ch * s * 0.8); ctx.lineTo(bx + sh * s * 0.8, by - ch * s * 0.8); ctx.stroke();
       }
+    }
+    if (sp.spots) {
+      ctx.fillStyle = 'rgba(8,7,13,.5)';
+      for (const [k, side] of [[-0.45, 0], [0.05, -1], [0.05, 1], [0.5, 0]]) {
+        const bx = ax + ch * s * k * sp.abdomen - sh * s * 0.45 * side, by = ay + sh * s * k * sp.abdomen + ch * s * 0.45 * side;
+        ctx.beginPath(); ctx.arc(bx, by, s * 0.22, 0, 6.2832); ctx.fill();
+      }
+      ctx.fillStyle = this.color;
     }
     if (sp.gloss) {
       ctx.fillStyle = 'rgba(255,255,255,.35)';

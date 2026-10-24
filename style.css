@@ -43,10 +43,29 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .pill::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--dim); margin-right: 6px; vertical-align: 1px; }
 .pill.on { color: var(--text); }
 .pill.on::before { background: var(--good); }
+.top { position: relative; }
+button.ghost { background: none; font-size: 12px; padding: 5px 11px; color: var(--dim); border-radius: 99px; }
+button.ghost:hover { color: var(--text); }
+.popover {
+  position: absolute; top: calc(100% + 6px); right: 18px; z-index: 20; width: min(400px, calc(100vw - 32px));
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+}
+.popover > b { display: block; font-size: 15px; margin-bottom: 6px; padding-right: 24px; }
+.popover p, .popover small { color: var(--dim); font-size: 13px; margin: 0 0 12px; display: block; }
+.popover small { margin: 10px 0 0; font-size: 12px; }
+.popover ol { margin: 12px 0 0; padding-left: 20px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.bmlink {
+  display: inline-flex; align-items: center; gap: 8px; background: var(--gold); color: #1a1405; font-weight: 700;
+  padding: 9px 16px; border-radius: 99px; cursor: grab; text-decoration: none !important;
+}
+.bmlink svg { width: 18px; height: 18px; }
+.x { position: absolute; top: 8px; right: 8px; background: none; border: 0; font-size: 18px; line-height: 1; padding: 4px 8px; color: var(--dim); }
+.x:hover { color: var(--text); }
+button.linkish { background: none; border: 0; padding: 0; color: #ffcc4d; text-decoration: underline; font: inherit; font-weight: 600; }
 
 /* ---------- spider dock ---------- */
 .dockbar { display: flex; gap: 14px; padding: 12px 18px; border-bottom: 1px solid var(--line); align-items: stretch; }
-.dock { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.dock { flex: 1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 .spider {
   position: relative; display: grid; grid-template-columns: 56px 1fr; grid-template-rows: auto 1fr auto; gap: 2px 10px;
   padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
@@ -63,6 +82,12 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .pattern { grid-column: 1 / -1; display: flex; gap: 6px; margin-top: 4px; }
 .pattern select, .pattern input { font-size: 12px; padding: 4px 6px; min-width: 0; flex: 1; }
 .spider.off { opacity: .45; }
+.spider[data-kind="mimic"].off { opacity: 1; }
+.spider[data-kind="mimic"].off canvas, .spider[data-kind="mimic"].off .sname, .spider[data-kind="mimic"].off .sjob { opacity: .6; }
+.pattern button { flex: 1; font-size: 12px; padding: 5px 8px; border-color: var(--c); color: var(--c); background: none; font-weight: 600; }
+.pattern button:hover:not(:disabled) { background: color-mix(in srgb, var(--c) 14%, transparent); border-color: var(--c); }
+body.picking .pattern button { background: var(--c); color: #1a0716; }
+body.picking .stage { box-shadow: inset 0 0 0 3px #f472b6; }
 .launch { display: flex; flex-direction: column; gap: 8px; justify-content: center; min-width: 210px; }
 .scope { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dim); }
 .big { padding: 11px 16px; font-size: 15px; }
@@ -95,7 +120,26 @@ body:not(.running) #skip, body:not(.running) #stop { display: none; }
   padding: 12px 40px 12px 16px; font-size: 13.5px; line-height: 1.5; box-shadow: 0 10px 34px rgba(0, 0, 0, .4);
 }
 .notice b { display: block; color: #ffcc4d; margin-bottom: 3px; font-size: 14px; }
-.notice button { position: absolute; top: 6px; right: 6px; padding: 2px 9px; font-size: 16px; line-height: 1.4; }
+.mapbtn { font-size: 11px; padding: 2px 10px; border-radius: 99px; border-color: var(--gold); color: var(--gold); background: none; align-self: center; }
+.mapview { position: absolute; inset: 0; z-index: 5; background: radial-gradient(ellipse at 50% 55%, #1a1f2c 0%, #0d1017 75%); animation: fadein .3s ease-out; }
+.mapview canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: auto; }
+.maphead { position: absolute; top: 0; left: 0; right: 0; z-index: 1; display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; padding: 12px 16px; pointer-events: none; }
+.maphead > div:first-child { display: flex; flex-direction: column; }
+.maphead b { color: var(--gold); font-size: 15px; }
+.maphead span { font-size: 12px; color: var(--dim); }
+.maphead em { font-style: normal; }
+.maphead button { margin-left: auto; pointer-events: auto; font-size: 12px; padding: 5px 12px; }
+.legend { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dim); }
+.legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-left: 8px; }
+.legend .k { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+.legend .d { background: #8b91a7; width: 5px; height: 5px; }
+.legend .b { background: var(--bad); }
+.maptip { position: absolute; z-index: 2; max-width: 340px; background: rgba(11, 13, 18, .95); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+.maptip b { font-size: 13px; }
+.maptip span { font: 11px var(--mono); color: #8ab4ff; word-break: break-all; }
+.maptip small { font-size: 11px; color: var(--dim); }
+.maptip em { font-style: normal; }
+@keyframes fadein { from { opacity: 0; } }
 .empty {
   position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center; padding: 30px; background: radial-gradient(ellipse at center, #171b26 0%, var(--panel) 70%);
@@ -168,6 +212,17 @@ body:not(.running) #skip, body:not(.running) #stop { display: none; }
 .md h4 { margin: 0 0 8px; font-size: 13px; }
 .md h4 small { color: var(--dim); font-weight: 400; font-family: var(--mono); }
 .md pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 12px/1.6 var(--mono); color: #cfd3e3; max-height: 55vh; overflow-y: auto; background: var(--panel-2); border-radius: 8px; padding: 10px 12px; }
+.chips.cols button span { color: var(--dim); margin-left: 2px; }
+.chips.cols button:hover span { color: var(--bad); }
+.ptable { overflow-x: auto; padding: 8px 0 12px; }
+.ptable table { border-collapse: collapse; font-size: 12px; min-width: 100%; }
+.ptable th { position: sticky; top: 0; background: var(--panel); color: #f9a8d4; font-weight: 600; text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; text-transform: capitalize; }
+.ptable td { padding: 5px 10px; border-bottom: 1px solid rgba(36, 42, 56, .6); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.ptable td a { font: 11px var(--mono); }
+.ptable td img { height: 30px; max-width: 54px; object-fit: cover; border-radius: 3px; display: block; background: #fff; }
+.ptable tbody tr { cursor: pointer; animation: rowin .25s ease-out; }
+.ptable tbody tr:hover { background: var(--panel-2); }
+.ptable tr.pick td:first-child { box-shadow: inset 3px 0 0 #f472b6; }
 @keyframes rowin { from { opacity: 0; transform: translateY(-4px); } }
 
 /* ---------- footer ---------- */
@@ -178,8 +233,18 @@ body:not(.running) #skip, body:not(.running) #stop { display: none; }
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--gold); color: #1a1405; font-weight: 700; padding: 8px 16px; border-radius: 99px; z-index: 10; }
 
 /* ---------- smaller screens ---------- */
+@media (max-width: 1600px) {
+  .spider { grid-template-columns: 44px 1fr; padding: 10px; gap: 2px 8px; }
+  .spider canvas { width: 44px; height: 44px; }
+  .sjob { font-size: 11.5px; }
+}
+@media (max-width: 1500px) and (min-width: 901px) {
+  .sjob { display: none; }
+  .spider { grid-template-columns: 34px 1fr; }
+  .spider canvas { width: 34px; height: 34px; }
+  .sname b { font-size: 13px; line-height: 1.25; }
+}
 @media (max-width: 1280px) {
-  .dock { grid-template-columns: repeat(5, minmax(150px, 1fr)); overflow-x: auto; }
   .main { grid-template-columns: minmax(0, 1fr) 360px; }
 }
 @media (max-width: 900px) {

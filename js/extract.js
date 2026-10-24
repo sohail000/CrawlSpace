@@ -253,6 +253,219 @@ function extractText(doc, pageUrl) {
   return { root, blocks, markdown, words, minutes: Math.max(1, Math.round(words / 230)), title: clean(doc.querySelector('h1')?.textContent) || clean(doc.title) };
 }
 
+// ---------- Mimic: everything like the thing you click ----------
+
+// A structural signature: the tag and its first class. Later classes often carry the value itself
+// (books.toscrape's "star-rating Three"), so they are left out.
+function sigOf(el) {
+  const c = [...el.classList].find((k) => /^[a-z_-][\w-]*$/i.test(k) && !/\d{4,}/.test(k));
+  return el.tagName.toLowerCase() + (c ? '.' + c : '');
+}
+
+// The path from the page body down to an element: each step is a signature and its position
+// among the siblings that share it.
+function pathFrom(root, el) {
+  const steps = [];
+  for (let n = el; n && n !== root; n = n.parentElement) {
+    const sig = sigOf(n);
+    let i = 0;
+    for (let p = n.previousElementSibling; p; p = p.previousElementSibling) if (sigOf(p) === sig) i++;
+    steps.unshift({ sig, i });
+  }
+  return steps;
+}
+
+// Follow a path down from root. A step marked wild takes every sibling with its signature.
+function followPath(root, steps) {
+  let level = [root];
+  for (const st of steps) {
+    const next = [];
+    for (const n of level) {
+      let k = 0;
+      for (const c of n.children) {
+        if (sigOf(c) !== st.sig) continue;
+        if (st.wild || k === st.i) next.push(c);
+        k++;
+      }
+    }
+    level = next;
+    if (!level.length) break;
+  }
+  return level;
+}
+
+const CELL = /^(td|th|dd|dt)\b/; // table cells are columns of a record, never records themselves
+const NOT_DATA = 'script, style, noscript, template, svg, button, form, input, select, textarea, [aria-hidden="true"]';
+
+// Everything a record holds, keyed by where it sits inside the record:
+// its texts, link addresses, image addresses, dates, and class-only values like a star rating.
+function fieldsOf(rec, base) {
+  const out = new Map(); // key -> { value, el }
+  const put = (key, value, el, many) => {
+    value = clean(value);
+    if (!value) return;
+    const had = out.get(key);
+    if (!had) out.set(key, { value, el });
+    else if (many && !had.value.split(', ').includes(value)) had.value += ', ' + value;
+  };
+  const visit = (el, path, many) => {
+    let own = '';
+    for (const n of el.childNodes) if (n.nodeType === 3) own += n.nodeValue;
+    own = clean(own);
+    if (own) {
+      // shortened text whose full version is in the title attribute ("A Light in the ...")
+      const title = clean(el.getAttribute('title'));
+      put(path, /(\.\.\.|…)$/.test(own) && title.length > own.length ? title : own, el, many);
+    } else if (!el.children.length && el.classList.length > 1) {
+      const sig = sigOf(el);
+      put(path + '@class', [...el.classList].filter((c) => `${el.tagName.toLowerCase()}.${c}` !== sig).join(' '), el, many);
+    }
+    if (el.tagName === 'IMG') { const src = el.currentSrc || el.src; if (src && !src.startsWith('data:')) put(path + '@src', src, el, many); }
+    if (el.tagName === 'A') { try { const u = new URL(el.getAttribute('href') || '', base); if (/^https?:$/.test(u.protocol) && el.getAttribute('href')) put(path + '@href', u.href, el, many); } catch {} }
+    if (el.tagName === 'TIME' && el.getAttribute('datetime')) put(path + '@datetime', el.getAttribute('datetime'), el, many);
+    const totals = new Map(), seen = new Map();
+    for (const c of el.children) totals.set(sigOf(c), (totals.get(sigOf(c)) || 0) + 1);
+    for (const c of el.children) {
+      const sig = sigOf(c), i = seen.get(sig) || 0;
+      seen.set(sig, i + 1);
+      if (c.matches(NOT_DATA) || (!c.getClientRects().length && c.tagName !== 'IMG')) continue;
+      // repeated siblings inside a record (tags, authors) become one column, joined with commas
+      const rep = totals.get(sig) > 1 && !CELL.test(sig);
+      visit(c, (path ? path + '>' : '') + `${sig}:${rep ? '*' : i}`, many || rep);
+    }
+  };
+  visit(rec, '', false);
+  return out;
+}
+
+const words = (s) => s.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[-_]+/g, ' ').toLowerCase().trim();
+const GENERIC_ID = /^(text|content|contents|container|main|root|wrapper|details|meta|items?|inner|outer|body|header|footer|label|link|button|overlay)$/i;
+
+// A column named after the nearest meaningful id around the field ("video-title", "channel-name").
+function idName(el, rec, attr) {
+  for (; el && el !== rec; el = el.parentElement) {
+    if (el.id && /^[a-z][\w-]{2,40}$/i.test(el.id) && !/\d{3,}/.test(el.id) && !GENERIC_ID.test(el.id) && !/(container|wrapper)$/i.test(el.id)) return words(el.id) + (attr === 'href' ? ' link' : attr === 'src' ? ' image' : '');
+  }
+  return '';
+}
+
+function colName(key) {
+  const [path, attr] = key.split('@');
+  const steps = path ? path.split('>').map((s) => s.slice(0, s.lastIndexOf(':'))) : [];
+  let name = '';
+  for (let i = steps.length - 1; i >= 0 && !name; i--) {
+    const [tag, cls] = steps[i].split('.');
+    if (cls) name = words(cls);
+    else if (/^h[1-6]$/.test(tag)) name = 'title';
+    else if (tag === 'time') name = 'date';
+  }
+  if (!name) return attr === 'src' ? 'image' : attr === 'href' ? 'link' : attr === 'datetime' ? 'date' : 'text';
+  return name + (attr === 'href' ? ' link' : attr === 'src' ? ' image' : '');
+}
+
+// Learn what you meant from one click: find the repeating record your pick sits in (a product, a row,
+// a quote), and the columns those records share.
+function learnPattern(doc, picked, base) {
+  const steps = pathFrom(doc.body, picked);
+  const withWild = (wild) => steps.map((s, k) => (wild.has(k) ? { ...s, wild: true } : s));
+  const count = (wild) => followPath(doc.body, withWild(wild)).length;
+  // the level that repeats most is the record (the deeper one wins a tie)
+  let best = -1, bestN = 2;
+  for (let k = 0; k < steps.length; k++) {
+    if (CELL.test(steps[k].sig)) continue;
+    const n = count(new Set([k]));
+    if (n >= bestN) { best = k; bestN = n; }
+  }
+  if (best < 0) return null;
+  // a grid of rows of cards: take every card in every row
+  const wild = new Set([best]);
+  for (let k = best + 1; k < steps.length - 1; k++) {
+    if (CELL.test(steps[k].sig)) continue;
+    if (count(new Set([...wild, k])) >= count(wild) * 1.5) wild.add(k);
+  }
+  const level = Math.max(...wild);
+  const recSteps = withWild(wild).slice(0, level + 1);
+  const records = followPath(doc.body, recSteps);
+  let pickRec = picked;
+  for (let k = steps.length - 1; k > level; k--) pickRec = pickRec.parentElement;
+
+  // columns: fields that most records have, that differ between records, and that say something new
+  const all = records.map((r) => fieldsOf(r, base));
+  const freq = new Map(), vals = new Map(), order = [];
+  for (const f of all) for (const [k, v] of f) {
+    if (!freq.has(k)) { freq.set(k, 0); vals.set(k, []); order.push(k); }
+    freq.set(k, freq.get(k) + 1);
+  }
+  for (const k of order) vals.set(k, all.map((f) => f.get(k)?.value || ''));
+  const mine = fieldsOf(pickRec, base);
+  const pickKey = [...mine].find(([, v]) => v.el === picked || picked.contains(v.el))?.[0];
+  const need = Math.max(2, records.length * 0.4);
+  const keep = [], sigs = new Set();
+  let same = 0;
+  // your pick first, then words and numbers, then link and image addresses
+  const rank = (k) => (k.endsWith('@src') ? 2 : k.endsWith('@href') ? 1 : 0);
+  const rest = order.filter((x) => x !== pickKey).sort((a, b) => rank(a) - rank(b));
+  for (const k of pickKey ? [pickKey, ...rest] : rest) {
+    const v = vals.get(k), sig = v.join('\u0001');
+    if (k !== pickKey && (freq.get(k) < need)) continue;
+    if (k !== pickKey && new Set(v).size === 1) { same++; continue; }
+    if (sigs.has(sig)) continue; // the same values as a column already kept
+    sigs.add(sig);
+    keep.push(k);
+    if (keep.length >= 10) break;
+  }
+  // table rows: name each column after its header cell
+  let heads = null;
+  const table = pickRec.tagName === 'TR' && pickRec.closest('table');
+  if (table) {
+    const top = [...table.rows].find((r) => r.cells.length && [...r.cells].every((c) => c.tagName === 'TH'));
+    if (top) heads = tableGrid({ rows: [top] })[0];
+  }
+  const headOf = (key) => {
+    const v = all.find((f) => f.has(key))?.get(key);
+    const cell = v?.el.closest('td, th');
+    if (!heads || !cell) return '';
+    let col = 0;
+    for (let c = cell.previousElementSibling; c; c = c.previousElementSibling) col += c.colSpan || 1;
+    const h = heads[col] || '';
+    const attr = key.split('@')[1];
+    return h && h + (attr === 'href' ? ' link' : attr === 'src' ? ' image' : '');
+  };
+  const names = new Map();
+  const columns = keep.map((key) => {
+    const i = all.findIndex((f) => f.has(key));
+    let name = headOf(key) || idName(all[i].get(key).el, records[i], key.split('@')[1]) || colName(key);
+    const n = (names.get(name) || 0) + 1;
+    names.set(name, n);
+    return { key, name: n > 1 ? `${name} ${n}` : name };
+  });
+  return { recSteps, recSig: steps[level].sig, columns, pickRec, same };
+}
+
+// Catch every record like the one you taught, on this page or any other page of the site.
+function applyPattern(doc, pat, base) {
+  let records = followPath(doc.body, pat.recSteps);
+  let note = '';
+  if (records.length < 2) {
+    // this page is laid out a little differently: look for the same kind of record anywhere
+    const [tag, cls] = pat.recSig.split('.');
+    const found = [...doc.querySelectorAll(cls ? `${tag}.${CSS.escape(cls)}` : tag)];
+    records = found.filter((r, i) => !(found[i + 1] && r.contains(found[i + 1])));
+    note = 'Found the records by their kind, because this page is laid out differently.';
+  }
+  const items = [];
+  for (const el of records) {
+    const f = fieldsOf(el, base);
+    const values = {};
+    let filled = 0;
+    for (const c of pat.columns) { values[c.key] = f.get(c.key)?.value || ''; if (values[c.key]) filled++; }
+    if (filled < Math.max(1, Math.ceil(pat.columns.length / 2))) continue;
+    const fieldEls = pat.columns.map((c) => f.get(c.key)?.el).filter(Boolean).slice(0, 6);
+    items.push({ el, values, fieldEls, pick: el === pat.pickRec });
+  }
+  return { items, notes: [note, pat.same && `${pat.same} field${pat.same === 1 ? ' was' : 's were'} the same in every record and left out`].filter(Boolean) };
+}
+
 // ---------- exports ----------
 
 function toCsv(rows) {

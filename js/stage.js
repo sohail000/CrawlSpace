@@ -5,7 +5,7 @@
 const READER_CSS = 'body{font:17px/1.65 Georgia,serif;max-width:46rem;margin:2.5rem auto;padding:0 1.25rem;color:#1d1d1f;background:#fff}' +
   'img{max-width:100%;height:auto}table{border-collapse:collapse;margin:1em 0}td,th{border:1px solid #ccc;padding:4px 8px;vertical-align:top}' +
   'a{color:#2457d6}h1,h2,h3{font-family:system-ui,sans-serif;line-height:1.25}';
-const STAGE_CSS = 'html{scroll-behavior:auto!important}.async-hide{opacity:1!important}a,button{cursor:default!important}';
+const STAGE_CSS = 'html{scroll-behavior:auto!important}.async-hide{opacity:1!important}a,button{cursor:default!important}.cs-pick,.cs-pick *{cursor:crosshair!important}';
 
 class Stage {
   constructor(els) {
@@ -36,6 +36,7 @@ class Stage {
   // ---------- the page ----------
 
   async show(page) {
+    this.endPick();
     this.reset();
     this.stopWaiting();
     const doc = new DOMParser().parseFromString(page.html, 'text/html');
@@ -94,6 +95,41 @@ class Stage {
   }
 
   vibrate(a, color) { this.amp = Math.min(9, this.amp + a); if (color) this.vibColor = color; }
+
+  // Teaching the mimic: the element under the pointer is outlined, a click picks it, Esc cancels.
+  startPick(onPick, onCancel) {
+    if (!this.doc) return;
+    this.endPick();
+    const doc = this.doc;
+    const valid = (t) => (t && t.nodeType === 1 && t !== doc.body && t !== doc.documentElement ? t : null);
+    const move = (e) => { this.hover = valid(e.target); };
+    const click = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const el = valid(e.target);
+      if (el) { this.endPick(); onPick(el); }
+    };
+    const key = (e) => { if (e.key === 'Escape') { this.endPick(); onCancel(); } };
+    doc.documentElement.classList.add('cs-pick');
+    doc.addEventListener('mousemove', move, true);
+    doc.addEventListener('click', click, true);
+    doc.addEventListener('keydown', key, true);
+    window.addEventListener('keydown', key, true);
+    this.picking = () => {
+      doc.documentElement.classList.remove('cs-pick');
+      doc.removeEventListener('mousemove', move, true);
+      doc.removeEventListener('click', click, true);
+      doc.removeEventListener('keydown', key, true);
+      window.removeEventListener('keydown', key, true);
+    };
+  }
+
+  endPick() {
+    if (this.picking) this.picking();
+    this.picking = null;
+    this.hover = null;
+  }
+
+  clearMarks(type) { this.marks = this.marks.filter((m) => m.type !== type); }
 
   // ---------- timing ----------
 
@@ -223,6 +259,23 @@ class Stage {
     this.vibrate(0.4, def.color);
   }
 
+  // Mimic: carries the shape of your pick from record to record, and underlines each field it copies.
+  async mimic(sp, it, animate, def) {
+    const r = this.rectOf(it.el, true);
+    if (!r) return;
+    const prev = this.last.mimic;
+    if (animate) {
+      await this.go(sp, r.x + Math.min(r.w / 2, 40), r.y + 4);
+      const from = prev && this.rectOf(prev.target, true);
+      if (from) { this.effects.push({ type: 'morph', from, to: r, color: def.color, born: this.now }); await this.wait(0.35); }
+    }
+    const mark = { type: 'stamp', target: it.el, fields: it.fieldEls, pick: it.pick, color: def.color, born: this.now };
+    this.marks.push(mark);
+    this.last.mimic = mark;
+    this.vibrate(0.7, def.color);
+    if (animate) await this.wait(0.25);
+  }
+
   // ---------- frame ----------
 
   frame(dt) {
@@ -251,7 +304,7 @@ class Stage {
   }
 
   markRect(m) {
-    if (!m.r || this.tick % 8 === 0) m.r = this.rectOf(m.target, m.type === 'wrap' || m.type === 'tag' || m.type === 'margin');
+    if (!m.r || this.tick % 8 === 0) m.r = this.rectOf(m.target, m.type !== 'knot' && m.type !== 'bite');
     return m.r;
   }
 
@@ -266,6 +319,7 @@ class Stage {
       for (const m of this.marks) this.drawMark(m, v);
       for (const e of this.effects) this.drawEffect(e, v, true);
       for (const sp of this.spiders) sp.draw(ctx, this.now, 1.3, sp.moving);
+      if (this.hover) this.drawHover(this.hover);
       ctx.restore();
       for (const e of this.effects) this.drawEffect(e, v, false);
     }
@@ -332,6 +386,20 @@ class Stage {
       ctx.fillRect(r.x, r.y, w, 16);
       ctx.fillStyle = '#0b0d12';
       ctx.fillText(label, r.x + 5, r.y + 12);
+    } else if (m.type === 'stamp') {
+      ctx.globalAlpha = 0.07 * age;
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.globalAlpha = 0.85 * age;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+      ctx.setLineDash([]);
+      if (!m.fr || this.tick % 8 === 0) m.fr = (m.fields || []).map((f) => this.rectOf(f, true));
+      ctx.lineWidth = 2;
+      for (const f of m.fr) {
+        if (!f) continue;
+        ctx.beginPath(); ctx.moveTo(f.x, f.y + f.h + 1); ctx.lineTo(f.x + Math.min(f.w, 420) * age, f.y + f.h + 1); ctx.stroke();
+      }
+      if (m.pick) this.label(r.x, r.y, 'YOUR PICK', m.color);
     } else if (m.type === 'margin') {
       ctx.globalAlpha = 0.8;
       ctx.lineWidth = 2;
@@ -363,6 +431,14 @@ class Stage {
         ctx.lineWidth = 3;
         ctx.strokeRect(r.x - 6, r.y - 6, r.w + 12, r.h + 12);
       }
+    } else if (inPage && e.type === 'morph' && t < 0.5) {
+      // the pick's outline slides over and reshapes itself to the next record
+      const k = Math.min(1, t / 0.35), q = k * k * (3 - 2 * k);
+      const L = (a, b) => a + (b - a) * q;
+      ctx.globalAlpha = 0.9 - k * 0.5; ctx.lineWidth = 1.6;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeRect(L(e.from.x, e.to.x), L(e.from.y, e.to.y), L(e.from.w, e.to.w), L(e.from.h, e.to.h));
+      ctx.setLineDash([]);
     } else if (!inPage && e.type === 'fly') {
       // the wrapped bundle heads for the results panel, off the right edge
       const k = Math.min(1, t / 0.7), q = k * k;
@@ -373,6 +449,28 @@ class Stage {
       ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.quadraticCurveTo((e.x + x) / 2, Math.min(e.y, y) - 40, x, y); ctx.stroke();
     }
     ctx.globalAlpha = 1;
+  }
+
+  label(x, y, text, color) {
+    const ctx = this.ctx;
+    ctx.globalAlpha = 1;
+    ctx.font = 'bold 10px "Space Mono", ui-monospace, monospace';
+    const w = ctx.measureText(text).width + 10;
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y - 16, w, 16);
+    ctx.fillStyle = '#0b0d12';
+    ctx.fillText(text, x + 5, y - 4);
+    ctx.fillStyle = color;
+  }
+
+  drawHover(el) {
+    const r = this.rectOf(el, true);
+    if (!r) return;
+    const ctx = this.ctx, c = '#f472b6';
+    ctx.fillStyle = ctx.strokeStyle = c;
+    ctx.globalAlpha = 0.1; ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.globalAlpha = 1; ctx.lineWidth = 2; ctx.strokeRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+    this.label(r.x - 1, r.y - 1, 'TEACH WITH THIS', c);
   }
 
   // The page's outline is a web: catches set it shaking, and it settles back.

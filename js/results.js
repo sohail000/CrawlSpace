@@ -5,7 +5,7 @@ class Results {
   constructor(els, defs, hooks) {
     this.els = els;   // { tabs, body }
     this.defs = defs; // spider definitions
-    this.hooks = hooks; // { onShow(kind, item), onCheckLinks() }
+    this.hooks = hooks; // { onShow(kind, item), onCheckLinks(), onSiteMap(), onColumns(cols) }
     this.filter = { links: 'all', images: 'all' };
     this.reset();
     els.tabs.addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) this.select(b.dataset.tab); });
@@ -13,7 +13,8 @@ class Results {
   }
 
   reset() {
-    this.data = { links: [], tables: [], regex: [], images: [], text: [], pages: [] };
+    this.data = { links: [], tables: [], regex: [], images: [], text: [], mimic: [], pages: [] };
+    this.cols = [];
     this.notes = {};
     this.active = null;
     this.renderTabs();
@@ -23,7 +24,7 @@ class Results {
   def(kind) { return this.defs.find((d) => d.kind === kind); }
 
   renderTabs() {
-    const tabs = this.defs.map((d) => [d.kind, d.short, d.color]);
+    const tabs = this.defs.filter((d) => d.kind !== 'mimic' || this.cols.length).map((d) => [d.kind, d.short, d.color]);
     if (this.data.pages.length > 1) tabs.push(['pages', 'Pages', '#e5e7eb']);
     this.els.tabs.innerHTML = tabs.map(([k, label, c]) => {
       const n = k === 'text' ? this.data.text.reduce((s, b) => s + b.words, 0) : this.data[k].length;
@@ -37,8 +38,11 @@ class Results {
     this.render();
   }
 
+  clear(kind) { this.data[kind] = []; }
+
   begin(kind, page, out) {
     this.notes[kind] = out.notes || [];
+    if (kind === 'mimic') this.cols = out.columns;
     if (kind === 'text') this.data.text.push({ page: page.url, title: out.title, words: 0, md: [] });
     if (this.active !== kind) this.select(kind); else this.render();
   }
@@ -51,6 +55,12 @@ class Results {
       sec.md.push(item.md);
       sec.words += (item.md.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').match(/[\p{L}\p{N}]+/gu) || []).length;
     } else {
+      if (kind === 'mimic') {
+        // the same record on two pages (a site's "/" and "/index.html") is kept once
+        const key = this.cols.map((c) => item.values[c.key]).join('\u0001');
+        if (this.data.mimic.some((r) => r.key === key)) return;
+        item.key = key;
+      }
       item.page = page;
       this.data[kind].push(item);
     }
@@ -69,6 +79,7 @@ class Results {
     if (kind === 'regex') return `${n} unique match${n === 1 ? '' : 'es'}`;
     if (kind === 'images') { const m = D.images.filter((i) => i.altState === 'missing').length; return `${n} image${s} · <span class="${m ? 'bad' : ''}">${m} missing alt text</span>`; }
     if (kind === 'text') { const w = D.text.reduce((a, b) => a + b.words, 0); return `${w.toLocaleString()} words · ${Math.max(1, Math.round(w / 230))} min read`; }
+    if (kind === 'mimic') return `${n} record${s} · ${this.cols.length} column${this.cols.length === 1 ? '' : 's'}`;
     return `${n} pages crawled`;
   }
 
@@ -108,8 +119,13 @@ class Results {
     } else if (k === 'text') {
       body.innerHTML = this.head('text', this.summary('text'), `<button data-act="copy">Copy Markdown</button><button data-act="md">Download .md</button>`) +
         `<div id="rows">${D.text.map((s) => this.textSection(s)).join('')}</div>`;
+    } else if (k === 'mimic') {
+      body.innerHTML = this.head('mimic', this.summary('mimic'), `<button data-act="csv">CSV</button><button data-act="tsv">Copy for Excel</button><button data-act="json">JSON</button>`) +
+        `<div class="chips cols">${this.cols.map((c) => `<button data-drop="${esc(c.key)}" title="Leave this column out">${esc(c.name)} <span aria-hidden="true">×</span></button>`).join('')}</div>` +
+        `<div class="ptable"><table><thead><tr>${this.cols.map((c) => `<th>${esc(c.name)}</th>`).join('')}</tr></thead><tbody id="rows"></tbody></table></div>`;
+      for (const it of D.mimic) this.append('mimic', it);
     } else if (k === 'pages') {
-      body.innerHTML = this.head('pages', this.summary('pages'), `<button data-act="csv">CSV</button>`) +
+      body.innerHTML = this.head('pages', this.summary('pages'), `<button data-act="map">Site map</button><button data-act="csv">CSV</button>`) +
         `<ol class="rows">${D.pages.map((p) => `<li class="row"><span class="badge ${p.error ? 'b-bad' : 'b-ok'}">${p.error ? 'fell' : p.status}</span><span class="rmain"><b>${esc(p.title || p.url)}</b><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)}</a>${p.error ? `<small class="bad">${esc(p.error)}</small>` : `<small>${p.kb} KB · ${p.ms} ms</small>`}</span></li>`).join('')}</ol>`;
     }
   }
@@ -138,6 +154,14 @@ class Results {
       if (this.filter.images === 'missing' && it.altState !== 'missing') return;
       const badge = it.altState === 'ok' ? `<span class="badge b-ok">alt</span>` : it.altState === 'decorative' ? `<span class="badge">decorative</span>` : `<span class="badge b-bad">no alt</span>`;
       list.insertAdjacentHTML('beforeend', `<figure class="thumb" data-kind="images" data-i="${i}"><img src="${esc(it.src)}" alt="" loading="lazy" referrerpolicy="no-referrer"><figcaption>${badge}<small>${it.w && it.h ? `${it.w}×${it.h}` : ''}</small><span>${esc(short(it.alt || it.src.split('/').pop().split('?')[0], 60))}</span></figcaption></figure>`);
+    } else if (kind === 'mimic') {
+      const cell = (c) => {
+        const v = it.values[c.key] || '';
+        if (c.key.endsWith('@src') && v) return `<td><img src="${esc(v)}" alt="" loading="lazy" referrerpolicy="no-referrer"></td>`;
+        if (c.key.endsWith('@href') && v) return `<td><a href="${esc(v)}" target="_blank" rel="noopener" title="${esc(v)}">${esc(short(v.replace(/^https?:\/\/[^/]+/, '') || v, 40))}</a></td>`;
+        return `<td title="${esc(v)}">${esc(short(v, 80))}</td>`;
+      };
+      list.insertAdjacentHTML('beforeend', `<tr data-kind="mimic" data-i="${i}" class="${it.pick ? 'pick' : ''}">${this.cols.map(cell).join('')}</tr>`);
     } else if (kind === 'text') {
       const s = this.data.text[this.data.text.length - 1];
       const secs = list.querySelectorAll('section.md');
@@ -160,6 +184,14 @@ class Results {
   click(e) {
     const f = e.target.closest('[data-filter]');
     if (f) { this.filter[this.active] = f.dataset.filter; this.render(); return; }
+    const drop = e.target.closest('[data-drop]');
+    if (drop) {
+      if (this.cols.length < 2) return;
+      this.cols = this.cols.filter((c) => c.key !== drop.dataset.drop);
+      this.hooks.onColumns(this.cols);
+      this.renderTabs(); this.render();
+      return;
+    }
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act) { e.preventDefault(); this.action(act, +e.target.closest('[data-act]').dataset.i); return; }
     if (e.target.closest('a')) return;
@@ -171,6 +203,14 @@ class Results {
     const k = this.active, D = this.data;
     const strip = (it) => { const { el, target, ...rest } = it; return rest; };
     if (act === 'check') return this.hooks.onCheckLinks();
+    if (act === 'map') return this.hooks.onSiteMap();
+    if (k === 'mimic') {
+      const rows = [this.cols.map((c) => c.name), ...D.mimic.map((r) => this.cols.map((c) => r.values[c.key] || ''))];
+      if (act === 'csv') return download('my-pick.csv', toCsv(rows), 'text/csv');
+      if (act === 'tsv') return flashBtn(await copyText(rows.map((r) => r.map((c) => c.replace(/[\t\n]/g, ' ')).join('\t')).join('\n')));
+      if (act === 'json') return download('my-pick.json', JSON.stringify(D.mimic.map((r) => Object.fromEntries([['page', r.page], ...this.cols.map((c) => [c.name, r.values[c.key] || ''])])), null, 2), 'application/json');
+      if (act === 'csv' || act === 'tsv') return;
+    }
     if (act === 'show') return this.hooks.onShow(k, D[k][i]);
     if (act === 'table-csv') return download(`table-${i + 1}.csv`, toCsv(D.tables[i].rows), 'text/csv');
     if (act === 'table-tsv') return flashBtn(await copyText(D.tables[i].rows.map((r) => r.map((c) => c.replace(/\t/g, ' ')).join('\t')).join('\n')));

@@ -1,6 +1,6 @@
 # Crawlspace
 
-**Watch spiders crawl any web page.** Paste a web address and the page appears centre stage. Five spiders, each with one job, crawl it in front of you and catch its links, tables, patterns, images and text, ready to export.
+**Watch spiders crawl any web page.** Paste a web address and the page appears centre stage. Spiders, each with one job, crawl it in front of you and catch its links, tables, patterns, images and text, ready to export. Or click one thing on the page, and the Mimic catches everything like it.
 
 **[Try it →](https://sohail000.github.io/CrawlSpace/)**
 
@@ -15,8 +15,23 @@
 | **Jumping spider** | Emails, phone numbers, prices, dates, web addresses, or your own pattern | Leaps from match to match and bites each one |
 | **Huntsman** | Every image, with its size and whether it has alt text | Sprints to each image and tags it |
 | **Reader** | The main text without menus or ads, as Markdown | Walks down the margin of each block it keeps |
+| **Mimic** | Whatever you point at. Click one product's name and get every product on the page as a table: name, price, link, image | Carries the outline of your pick from record to record, underlining each field it copies |
 
 Each catch shows up in the results panel the moment the spider makes it, and the page's outline shakes like a web. Click any result to see it on the page.
+
+## Teach the Mimic
+
+Press **Teach it**, then click one thing that repeats on the page: a product name, a price, a row of a table. The Mimic works out what that thing belongs to (the product card, the table row) and catches every one like it, with all the fields they share as columns. Columns are named after the page's own labels where it has them (a table's header, a "video-title"). Drop any column you don't need.
+
+Crawl the site afterwards and the Mimic catches the same records on every page it visits, so 5 pages of a shop listing become one table.
+
+## Site map
+
+Crawl a site (“this site, up to 25 pages”) and the Orb-weaver draws what it found as an orb web: the start page is the hub, each crawled page is a knot, and each link that led there is a thread. Pages it found but didn't crawl ring the rim; broken pages are snapped threads. Hover a knot for its details, click it to put that page on stage.
+
+## Pages that need JavaScript: the bookmarklet
+
+Some sites (YouTube, many web apps) send an empty shell and build the page with scripts, so there's nothing to fetch by address. For those, drag the **Crawl in Crawlspace** button (under **Bookmarklet**, top right) to your bookmarks bar. Open the page in your browser, let it load, and click the bookmark: Crawlspace opens with the page exactly as you saw it. The page goes straight from your tab to Crawlspace's tab, not through any server.
 
 ## Built for accuracy
 
@@ -37,7 +52,7 @@ A page in your browser isn't allowed to read other websites, so Crawlspace uses 
 
 Wikipedia pages work without it, through Wikipedia's own API.
 
-Pages are shown without their scripts, so sites that build everything with JavaScript may come out partly empty.
+Pages are shown without their scripts, so sites that build everything with JavaScript come out mostly empty. Crawlspace says so when it happens; use the bookmarklet for those.
 
 **Run the proxy on your computer** (Node 20+): `node proxy/dev.mjs`, then open `index.html`. It's picked up automatically.
 
@@ -59,7 +74,8 @@ Copy the `workers.dev` address it prints into `PROXY_URL` at the top of `js/fetc
 - `js/stage.js`: the page on stage, the overlay and each spider's moves
 - `js/spider.js`: the procedural spiders (one build per species)
 - `js/results.js`: result tabs and exports
-- `js/app.js`: wiring and the site crawl
+- `js/sitemap.js`: the site map, drawn as an orb web
+- `js/app.js`: wiring, teaching the Mimic, the site crawl and the bookmarklet
 - `proxy/`: the fetching proxy (Cloudflare Worker, plus a local runner)
 - `Crawlspace.html`: the original toy, with spiders that crawl and bite any page
 
