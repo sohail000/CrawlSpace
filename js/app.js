@@ -28,7 +28,9 @@ const siteMap = new SiteMap({ box: $('map'), canvas: $('mapcanvas'), head: $('ma
 });
 
 const state = {
-  page: null, selected: new Set(SPIDERS.filter((s) => s.kind !== 'mimic').map((s) => s.kind)), pattern: 'emails',
+  // Nothing is picked until a page is on stage: then the table and pattern spiders pick themselves when
+  // there is something for them. Spiders you tick or untick yourself stay as you left them.
+  page: null, selected: new Set(), touched: new Set(), pattern: 'emails',
   running: false, stop: false, mimic: null, picking: false, site: null,
 };
 
@@ -36,8 +38,8 @@ const state = {
 
 function buildDock() {
   $('dock').innerHTML = SPIDERS.map((s) => `
-    <label class="spider${s.kind === 'mimic' ? ' off' : ''}" style="--c:${s.color}" data-kind="${s.kind}" title="${s.name}: ${s.job}">
-      <input type="checkbox" ${s.kind === 'mimic' ? 'disabled' : 'checked'} data-kind="${s.kind}">
+    <label class="spider off" style="--c:${s.color}" data-kind="${s.kind}" title="${s.name}: ${s.job}">
+      <input type="checkbox" ${s.kind === 'mimic' ? 'disabled' : ''} data-kind="${s.kind}">
       <canvas width="112" height="112" data-species="${s.species}" aria-hidden="true"></canvas>
       <span class="sname"><b>${s.name}</b><em>${s.short}</em></span>
       <span class="sjob">${s.job}</span>
@@ -58,12 +60,19 @@ function buildDock() {
   }
   $('dock').addEventListener('change', (e) => {
     const k = e.target.dataset.kind;
-    if (k) { e.target.checked ? state.selected.add(k) : state.selected.delete(k); e.target.closest('.spider').classList.toggle('off', !e.target.checked); }
-    updateRelease();
+    if (k) { state.touched.add(k); pick(k, e.target.checked); }
   });
   $('pattern').addEventListener('change', () => { state.pattern = $('pattern').value; $('custom').hidden = state.pattern !== 'custom'; if (!$('custom').hidden) $('custom').focus(); scan(); });
   $('custom').addEventListener('input', () => scan());
   $('teach').addEventListener('click', teach);
+}
+
+function pick(kind, on) {
+  const box = $('dock').querySelector(`input[data-kind="${kind}"]`);
+  box.checked = on;
+  on ? state.selected.add(kind) : state.selected.delete(kind);
+  box.closest('.spider').classList.toggle('off', !on);
+  updateRelease();
 }
 
 function customPattern() { return { source: $('custom').value.trim(), caseless: true }; }
@@ -93,6 +102,8 @@ function scan() {
       else {
         const out = extract(s.kind, stage.doc, stage.page.url);
         const n = out.items.length;
+        // tables and patterns (emails by default) pick themselves when the page has some
+        if ((s.kind === 'tables' || s.kind === 'regex') && !state.touched.has(s.kind)) pick(s.kind, n > 0);
         label = s.kind === 'links' ? `${n} links` : s.kind === 'tables' ? `${n} table${n === 1 ? '' : 's'}`
           : s.kind === 'regex' ? `${n} ${state.pattern === 'custom' ? 'matches' : PATTERNS[state.pattern].label.toLowerCase()}`
           : s.kind === 'images' ? `${n} image${n === 1 ? '' : 's'}`
@@ -152,7 +163,10 @@ async function put(page, keep = false) {
   scan();
   const shell = page.via !== 'bookmarklet' && isShell(page, stage.doc);
   showNotice(shell && `<b>${esc(new URL(page.url).hostname.replace(/^www\./, ''))} builds this page with JavaScript.</b>It sends an empty shell first, then fills it in with scripts, and Crawlspace shows pages without their scripts. So there’s little here for the spiders, and waiting won’t change that. <button type="button" class="linkish" data-bm>Use the bookmarklet</button> to bring the page in exactly as your browser shows it.`);
-  status(shell ? 'Page on stage, but it is mostly empty without its scripts.' : page.via === 'bookmarklet' ? 'Page on stage, exactly as your browser showed it. Pick your spiders and release them.' : 'Page on stage. Pick your spiders and release them.');
+  const picked = SPIDERS.filter((s) => state.selected.has(s.kind)).map((s) => s.name);
+  status(shell ? 'Page on stage, but it is mostly empty without its scripts.'
+    : (page.via === 'bookmarklet' ? 'Page on stage, exactly as your browser showed it. ' : 'Page on stage. ')
+      + (picked.length ? `Ready: ${picked.length > 1 ? picked.slice(0, -1).join(', ') + ' and ' + picked.at(-1) : picked[0]}. Tick any other spiders you want, then release them.` : 'No tables or emails here. Tick the spiders you want, then release them.'));
   history.replaceState(null, '', '#' + page.url);
   $('stagebox').classList.remove('loading');
   updateRelease();
@@ -218,11 +232,9 @@ async function learn(el) {
   const pat = learnPattern(stage.doc, el, stage.page.url);
   if (!pat || !pat.columns.length) return status('Nothing else on this page looks like that. Try something that repeats, like one product’s name or price.', true);
   state.mimic = pat;
-  state.selected.add('mimic');
   $('teach').textContent = 'Teach it again';
-  const box = $('dock').querySelector('input[data-kind="mimic"]');
-  box.disabled = false; box.checked = true;
-  box.closest('.spider').classList.remove('off');
+  $('dock').querySelector('input[data-kind="mimic"]').disabled = false;
+  pick('mimic', true);
   scan();
   await runOne(MIMIC);
 }
