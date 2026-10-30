@@ -4,6 +4,8 @@
 
 **[Try it →](https://sohail000.github.io/CrawlSpace/)**
 
+The first screen is a live demo: a small made-up field-guide page that ships with Crawlspace, already being crawled by the Funnel-web, the Jumping spider (prices) and the Mimic. It stops the moment you type an address or load a page. If your system asks for reduced motion, it shows the finished results with no animation.
+
 ![The funnel-web spider wrapping a Wikipedia table in silk, with the clean table in the results panel](assets/preview.png)
 
 ## The spiders

@@ -8,6 +8,12 @@ const SPIDERS = [
   { kind: 'text', name: 'Reader', short: 'Text', species: 'reader', color: '#a78bfa', verb: 'reading block', job: 'The main text without menus or ads, as clean Markdown.' },
   { kind: 'mimic', name: 'Mimic', short: 'Your pick', species: 'mimic', color: '#f472b6', verb: 'copying record', job: 'Click one thing on the page, and it catches everything like it as a table.' },
 ];
+const EXAMPLES = [
+  { name: 'Wikipedia: cities', url: 'https://en.wikipedia.org/wiki/List_of_largest_cities' },
+  { name: 'Wikipedia: Spider', url: 'https://en.wikipedia.org/wiki/Spider' },
+  { name: 'Books to scrape', url: 'https://books.toscrape.com/', proxy: true },
+  { name: 'Quotes to scrape', url: 'https://quotes.toscrape.com/', proxy: true },
+];
 const MIMIC = SPIDERS.find((s) => s.kind === 'mimic');
 const $ = (id) => document.getElementById(id);
 
@@ -31,7 +37,7 @@ const state = {
   // Nothing is picked until a page is on stage: then the table and pattern spiders pick themselves when
   // there is something for them. Spiders you tick or untick yourself stay as you left them.
   page: null, selected: new Set(), touched: new Set(), pattern: 'emails',
-  running: false, stop: false, mimic: null, picking: false, site: null,
+  running: false, stop: false, mimic: null, picking: false, site: null, demo: false,
 };
 
 // ---------- the dock: one card per spider ----------
@@ -62,7 +68,7 @@ function buildDock() {
     const k = e.target.dataset.kind;
     if (k) { state.touched.add(k); pick(k, e.target.checked); }
   });
-  $('pattern').addEventListener('change', () => { state.pattern = $('pattern').value; $('custom').hidden = state.pattern !== 'custom'; if (!$('custom').hidden) $('custom').focus(); scan(); });
+  $('pattern').addEventListener('change', () => { setPattern($('pattern').value); if (!$('custom').hidden) $('custom').focus(); scan(); });
   $('custom').addEventListener('input', () => scan());
   $('teach').addEventListener('click', teach);
 }
@@ -73,6 +79,12 @@ function pick(kind, on) {
   on ? state.selected.add(kind) : state.selected.delete(kind);
   box.closest('.spider').classList.toggle('off', !on);
   updateRelease();
+}
+
+function setPattern(key) {
+  state.pattern = key;
+  $('pattern').value = key;
+  $('custom').hidden = key !== 'custom';
 }
 
 function customPattern() { return { source: $('custom').value.trim(), caseless: true }; }
@@ -132,6 +144,7 @@ function normalize(text) {
 async function load(text, { keep = false } = {}) {
   const url = normalize(text);
   if (!url) return status('That doesn’t look like a web address. Try something like en.wikipedia.org/wiki/Spider', true);
+  endDemo();
   if (state.running) stopRun();
   $('url').value = url;
   $('empty').hidden = true;
@@ -153,9 +166,10 @@ async function put(page, keep = false) {
   cancelPick();
   showNotice(null);
   siteMap.hide();
+  if (page.via !== 'demo') endDemo();
   if (!keep) state.site = null;
   $('empty').hidden = true;
-  $('url').value = page.url;
+  if (page.via !== 'demo') $('url').value = page.url;
   await stage.show(page);
   state.page = page;
   if (!keep) results.reset();
@@ -165,9 +179,9 @@ async function put(page, keep = false) {
   showNotice(shell && `<b>${esc(new URL(page.url).hostname.replace(/^www\./, ''))} builds this page with JavaScript.</b>It sends an empty shell first, then fills it in with scripts, and Crawlspace shows pages without their scripts. So there’s little here for the spiders, and waiting won’t change that. <button type="button" class="linkish" data-bm>Use the bookmarklet</button> to bring the page in exactly as your browser shows it.`);
   const picked = SPIDERS.filter((s) => state.selected.has(s.kind)).map((s) => s.name);
   status(shell ? 'Page on stage, but it is mostly empty without its scripts.'
-    : (page.via === 'bookmarklet' ? 'Page on stage, exactly as your browser showed it. ' : 'Page on stage. ')
+    : (page.via === 'demo' ? 'Demo page on stage. ' : page.via === 'bookmarklet' ? 'Page on stage, exactly as your browser showed it. ' : 'Page on stage. ')
       + (picked.length ? `Ready: ${picked.length > 1 ? picked.slice(0, -1).join(', ') + ' and ' + picked.at(-1) : picked[0]}. Tick any other spiders you want, then release them.` : 'No tables or emails here. Tick the spiders you want, then release them.'));
-  history.replaceState(null, '', '#' + page.url);
+  if (page.via !== 'demo') history.replaceState(null, '', '#' + page.url);
   $('stagebox').classList.remove('loading');
   updateRelease();
 }
@@ -193,10 +207,14 @@ function showNotice(html) {
 
 function pageBar(p) {
   const title = stage.doc?.title || p.url;
-  const via = p.via === 'wikipedia' ? 'Wikipedia API' : p.via === 'bookmarklet' ? 'your browser' : 'proxy';
+  const via = p.via === 'wikipedia' ? 'Wikipedia API' : p.via === 'bookmarklet' ? 'your browser' : p.via === 'demo' ? 'Crawlspace itself' : 'proxy';
   const map = state.site && [...state.site.nodes.values()].filter((n) => n.crawled).length > 1 ? '<button id="mapbtn" class="mapbtn">Site map</button>' : '';
   const night = `<button id="nightbtn" class="mapbtn night" aria-pressed="${stage.night}" title="Show the page dark, or in its own colours">${stage.night ? 'Dark page' : 'Original colours'}</button>`;
-  $('pagebar').innerHTML = `<b>${esc(short(title, 90))}</b><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)}</a>${map}${night}<span>${p.status} · ${p.kb} KB · ${p.via === 'bookmarklet' ? '' : `${p.ms} ms · `}via ${via}</span>`;
+  const where = p.via === 'demo' ? '<em>demo page</em>' : `<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)}</a>`;
+  // the demo page has no address, so its bar offers real pages to try instead of load stats
+  const examples = EXAMPLES.filter((x) => !x.proxy || Fetcher.proxy).map((x) => `<button data-url="${x.url}">${x.name}</button>`).join('');
+  const tail = p.via === 'demo' ? `<div class="eg">Try a real page: ${examples}</div>` : `<span>${p.status} · ${p.kb} KB · ${p.via === 'bookmarklet' ? '' : `${p.ms} ms · `}via ${via}</span>`;
+  $('pagebar').innerHTML = `<b>${esc(short(title, 90))}</b>${where}${map}${night}${tail}`;
 }
 
 // The page is shown dark unless you chose its own colours (remembered in this browser).
@@ -235,16 +253,21 @@ function cancelPick() {
   if (!state.running) stage.setCaption(null);
 }
 
-async function learn(el) {
-  cancelPick();
+// Work out what repeats around the element you pointed at, and tick the Mimic. False if nothing does.
+function taught(el) {
   const pat = learnPattern(stage.doc, el, stage.page.url);
-  if (!pat || !pat.columns.length) return status('Nothing else on this page looks like that. Try something that repeats, like one product’s name or price.', true);
+  if (!pat || !pat.columns.length) { status('Nothing else on this page looks like that. Try something that repeats, like one product’s name or price.', true); return false; }
   state.mimic = pat;
   $('teach').textContent = 'Teach it again';
   $('dock').querySelector('input[data-kind="mimic"]').disabled = false;
   pick('mimic', true);
   scan();
-  await runOne(MIMIC);
+  return true;
+}
+
+async function learn(el) {
+  cancelPick();
+  if (taught(el)) await runOne(MIMIC);
 }
 
 // Release one spider on the page on stage, straight away (the mimic, right after it is taught).
@@ -270,14 +293,14 @@ async function runOne(def) {
 
 // ---------- releasing the spiders ----------
 
-async function release() {
+async function release({ instant = false } = {}) {
   if (!state.page || state.running) return;
   cancelPick();
   siteMap.hide();
   const scope = $('scope').value;
-  const limit = scope === 'page' ? 1 : Number(scope);
+  const limit = scope === 'page' || state.page.via === 'demo' ? 1 : Number(scope); // the demo page has no site behind it
   state.running = true; state.stop = false;
-  stage.stopped = false; stage.skip = false;
+  stage.stopped = false; stage.skip = instant;
   document.body.classList.add('running');
   updateRelease();
   results.reset();
@@ -381,6 +404,40 @@ async function checkLinks() {
   results.updateLink();
 }
 
+// ---------- the demo: something to watch the moment you arrive ----------
+
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+// Put the bundled sample page on stage and let the table, price and Mimic spiders loose on it.
+async function startDemo() {
+  state.demo = true;
+  setPattern('prices');
+  await put(demoPage());
+  if (!state.demo) return;
+  $('demonote').hidden = false;
+  await new Promise((r) => setTimeout(r, 700)); // let the page be seen before anything moves
+  if (!state.demo) return;
+  // the Mimic teaches itself on the first card's title, the same way a click would
+  const title = stage.doc.querySelector('.card h3');
+  if (title) {
+    stage.setCaption(MIMIC, 'teaching itself from the first card’s title');
+    stage.flash(title, MIMIC.color);
+    await new Promise((r) => setTimeout(r, 900));
+    if (!state.demo) return;
+    taught(title);
+  }
+  await release({ instant: reducedMotion() });
+}
+
+// Anyone typing an address or loading a page ends the demo straight away.
+function endDemo() {
+  if (!state.demo) return;
+  state.demo = false;
+  $('demonote').hidden = true;
+  if (state.running) stopRun();
+  if (!state.running) stage.setCaption(null);
+}
+
 // ---------- the bookmarklet: bring in a page exactly as your browser shows it ----------
 
 // Runs on the other site: copies the page as it is now (styles that scripts added included),
@@ -431,7 +488,8 @@ function toggleBm(open = $('bm').hidden) { $('bm').hidden = !open; }
 // ---------- controls ----------
 
 $('go').addEventListener('submit', (e) => { e.preventDefault(); load($('url').value); });
-$('release').addEventListener('click', release);
+$('url').addEventListener('input', endDemo);
+$('release').addEventListener('click', () => release());
 $('stop').addEventListener('click', stopRun);
 $('skip').addEventListener('click', () => { stage.skip = true; stage.stopWaiting(); });
 $('speed').addEventListener('click', () => {
@@ -441,6 +499,8 @@ $('speed').addEventListener('click', () => {
 $('pagebar').addEventListener('click', (e) => {
   if (e.target.closest('#mapbtn')) siteMap.visible ? siteMap.hide() : showMap();
   if (e.target.closest('#nightbtn')) setNight(!stage.night);
+  const eg = e.target.closest('[data-url]');
+  if (eg) load(eg.dataset.url);
 });
 $('notice').addEventListener('click', (e) => {
   if (e.target.closest('.x')) $('notice').hidden = true;
@@ -475,11 +535,14 @@ let night = true;
 try { night = localStorage.getItem('crawlspace.night') !== '0'; } catch {}
 stage.setNight(night);
 const fromBookmarklet = receiveFromBookmarklet();
+const deepLink = /^https?:\/\//.test(decodeURIComponent(location.hash.slice(1)));
+if (!fromBookmarklet && !deepLink) startDemo();
 Fetcher.init().then((p) => {
   $('proxy').textContent = p ? 'any website' : 'Wikipedia only';
   $('proxy').title = p ? `Pages come through the proxy at ${p}` : 'No proxy found: only Wikipedia pages can be loaded. See the README to set one up.';
   $('proxy').classList.toggle('on', Boolean(p));
   for (const b of document.querySelectorAll('[data-needs-proxy]')) b.hidden = !p;
+  if (state.page?.via === 'demo') pageBar(state.page); // now it knows which examples need the proxy
   const fromHash = decodeURIComponent(location.hash.slice(1));
   if (!fromBookmarklet && /^https?:\/\//.test(fromHash)) load(fromHash);
 });
