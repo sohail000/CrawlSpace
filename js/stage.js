@@ -6,6 +6,10 @@ const READER_CSS = 'body{font:17px/1.65 Georgia,serif;max-width:46rem;margin:2.5
   'img{max-width:100%;height:auto}table{border-collapse:collapse;margin:1em 0}td,th{border:1px solid #ccc;padding:4px 8px;vertical-align:top}' +
   'a{color:#2457d6}h1,h2,h3{font-family:system-ui,sans-serif;line-height:1.25}';
 const STAGE_CSS = 'html{scroll-behavior:auto!important}.async-hide{opacity:1!important}a,button{cursor:default!important}.cs-pick,.cs-pick *{cursor:crosshair!important}';
+// The dark page: every colour flipped, then pictures flipped back so they keep their real colours.
+const NIGHT_CSS = 'html{filter:invert(1) hue-rotate(180deg);background:#fff!important}' +
+  'img,picture,video,canvas,svg image,[style*="background-image"]{filter:invert(1) hue-rotate(180deg)}';
+const TAG_FONT = '600 10px "Space Mono", ui-monospace, monospace';
 
 class Stage {
   constructor(els) {
@@ -56,6 +60,7 @@ class Stage {
     head.prepend(meta, base);
     if (!doc.querySelector('link[rel~="stylesheet"], style')) head.append(style(READER_CSS));
     head.append(style(STAGE_CSS));
+    if (this.night) head.append(Object.assign(style(NIGHT_CSS), { id: 'cs-night' }));
     const frame = this.els.frame;
     await new Promise((resolve) => {
       frame.addEventListener('load', resolve, { once: true });
@@ -95,6 +100,47 @@ class Stage {
   }
 
   vibrate(a, color) { this.amp = Math.min(9, this.amp + a); if (color) this.vibColor = color; }
+
+  setNight(on) {
+    this.night = on;
+    this.els.wrap.classList.toggle('night', on);
+    const d = this.doc;
+    if (!d?.head) return;
+    const s = d.getElementById('cs-night');
+    if (on && !s) d.head.append(Object.assign(d.createElement('style'), { id: 'cs-night', textContent: NIGHT_CSS }));
+    if (!on && s) s.remove();
+  }
+
+  // A catch peels off the page and hangs behind the spider on a thread. When the string gets long,
+  // the oldest piece is sent on to the results panel.
+  carry(sp, text, from, color) {
+    if (!text || !from) return;
+    text = short(text, 24);
+    this.ctx.font = TAG_FONT;
+    const w = this.ctx.measureText(text).width + 12;
+    sp.cargo.unshift({ text, w, x: from.x + Math.min(from.w, w) / 2, y: from.y + from.h / 2, a: 0, color, born: this.now });
+    if (sp.cargo.length > 6) this.sendOff(sp.cargo.pop());
+  }
+
+  sendOff(t) {
+    const v = this.view();
+    this.effects.push({ type: 'flytag', x: t.x - v.x, y: t.y - v.y, text: t.text, w: t.w, color: t.color, born: this.now });
+  }
+
+  // The carried pieces follow each other like the segments of a rope.
+  hang(sp, dt) {
+    const k = Math.min(1, dt * 12);
+    let px = sp.x - Math.cos(sp.h) * sp.size * 3.4, py = sp.y - Math.sin(sp.h) * sp.size * 3.4, pw = 0;
+    for (const t of sp.cargo) {
+      t.y += 60 * dt; // a little weight, so the string sags like silk
+      const L = 4 + (pw + t.w) * 0.45, dx = t.x - px, dy = t.y - py, d = Math.hypot(dx, dy) || 1;
+      if (d > L) { t.x += (px + (dx / d) * L - t.x) * k; t.y += (py + (dy / d) * L - t.y) * k; }
+      let a = Math.atan2(t.y - py, t.x - px);
+      if (Math.abs(a) > Math.PI / 2) a += Math.PI; // keep the words the right way up
+      t.a += (Math.atan2(Math.sin(a), Math.cos(a)) - t.a) * k;
+      px = t.x; py = t.y; pw = t.w;
+    }
+  }
 
   // Teaching the mimic: the element under the pointer is outlined, a click picks it, Esc cancels.
   startPick(onPick, onCancel) {
@@ -171,6 +217,7 @@ class Stage {
   async perform(kind, def, items, onCatch, labelOf) {
     const v = this.view();
     const sp = new SpiderBody(v.x + 40, v.y + 40, { color: def.color, species: def.species });
+    sp.cargo = [];
     this.spiders.push(sp);
     this.track = sp;
     this.vibColor = def.color;
@@ -181,9 +228,11 @@ class Stage {
       const animate = i < full && !this.skip;
       this.setCaption(def, animate ? `${def.verb} ${i + 1} of ${items.length}${labelOf ? ' · ' + labelOf(it) : ''}` : `catching the other ${items.length - full} quickly…`);
       await this[kind](sp, it, animate, def);
+      if (animate && labelOf) this.carry(sp, labelOf(it), this.rectOf(it.el || it.target), def.color);
       onCatch(it);
       if (!animate && (i % 4 === 0 || quick >= 0.02)) await this.wait(quick * (quick >= 0.02 ? 1 : 4));
     }
+    for (const t of sp.cargo.splice(0)) this.sendOff(t);
     this.setCaption(def, items.length ? `done: ${items.length} caught` : 'nothing to catch on this page');
     await this.wait(items.length ? 0.5 : 0.9);
     this.spiders = this.spiders.filter((s) => s !== sp);
@@ -290,6 +339,7 @@ class Stage {
       sp.twitchy = !sp.moving;
       sp.update(sdt, this.now);
       if (this.skip && sp.moving) sp.teleport(sp.path[0]?.x ?? sp.leap?.x1 ?? sp.x, sp.path[0]?.y ?? sp.leap?.y1 ?? sp.y);
+      if (sp.cargo) this.hang(sp, sdt);
     }
     // camera: keep the working spider in view
     if (this.track && this.win) {
@@ -318,7 +368,7 @@ class Stage {
       ctx.translate(-v.x, -v.y);
       for (const m of this.marks) this.drawMark(m, v);
       for (const e of this.effects) this.drawEffect(e, v, true);
-      for (const sp of this.spiders) sp.draw(ctx, this.now, 1.3, sp.moving);
+      for (const sp of this.spiders) { if (sp.cargo?.length) this.drawCargo(sp); sp.draw(ctx, this.now, 1.3, true); }
       if (this.hover) this.drawHover(this.hover);
       ctx.restore();
       for (const e of this.effects) this.drawEffect(e, v, false);
@@ -439,6 +489,12 @@ class Stage {
       ctx.setLineDash([5, 4]);
       ctx.strokeRect(L(e.from.x, e.to.x), L(e.from.y, e.to.y), L(e.from.w, e.to.w), L(e.from.h, e.to.h));
       ctx.setLineDash([]);
+    } else if (!inPage && e.type === 'flytag') {
+      // a carried piece heads off the right edge, into the results panel
+      const k = Math.min(1, t / 0.9), q = k * k;
+      const x = e.x + (this.W + e.w - e.x) * q, y = e.y - Math.sin(k * Math.PI) * 50;
+      ctx.globalAlpha = 1 - k * 0.4;
+      this.tag(x, y, 0, e);
     } else if (!inPage && e.type === 'fly') {
       // the wrapped bundle heads for the results panel, off the right edge
       const k = Math.min(1, t / 0.7), q = k * k;
@@ -461,6 +517,35 @@ class Stage {
     ctx.fillStyle = '#0b0d12';
     ctx.fillText(text, x + 5, y - 4);
     ctx.fillStyle = color;
+  }
+
+  // A caught piece: its text in a small box, turned to lie along the thread.
+  tag(x, y, a, t) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(a);
+    ctx.fillStyle = 'rgba(11,13,18,.9)';
+    ctx.fillRect(-t.w / 2, -8, t.w, 16);
+    ctx.strokeStyle = t.color; ctx.lineWidth = 1;
+    ctx.strokeRect(-t.w / 2 + 0.5, -7.5, t.w - 1, 15);
+    ctx.fillStyle = t.color; ctx.font = TAG_FONT; ctx.textBaseline = 'middle';
+    ctx.fillText(t.text, -t.w / 2 + 6, 0.5);
+    ctx.restore();
+  }
+
+  drawCargo(sp) {
+    const ctx = this.ctx;
+    ctx.strokeStyle = sp.color; ctx.globalAlpha = 0.45; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sp.x - Math.cos(sp.h) * sp.size * 3.4, sp.y - Math.sin(sp.h) * sp.size * 3.4);
+    for (const t of sp.cargo) ctx.lineTo(t.x, t.y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    for (const t of sp.cargo) {
+      ctx.globalAlpha = Math.min(1, (this.now - t.born) / 0.25);
+      this.tag(t.x, t.y, t.a, t);
+    }
+    ctx.globalAlpha = 1;
   }
 
   drawHover(el) {

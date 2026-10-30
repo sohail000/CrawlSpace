@@ -195,7 +195,15 @@ function pageBar(p) {
   const title = stage.doc?.title || p.url;
   const via = p.via === 'wikipedia' ? 'Wikipedia API' : p.via === 'bookmarklet' ? 'your browser' : 'proxy';
   const map = state.site && [...state.site.nodes.values()].filter((n) => n.crawled).length > 1 ? '<button id="mapbtn" class="mapbtn">Site map</button>' : '';
-  $('pagebar').innerHTML = `<b>${esc(short(title, 90))}</b><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)}</a>${map}<span>${p.status} · ${p.kb} KB · ${p.via === 'bookmarklet' ? '' : `${p.ms} ms · `}via ${via}</span>`;
+  const night = `<button id="nightbtn" class="mapbtn night" aria-pressed="${stage.night}" title="Show the page dark, or in its own colours">${stage.night ? 'Dark page' : 'Original colours'}</button>`;
+  $('pagebar').innerHTML = `<b>${esc(short(title, 90))}</b><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)}</a>${map}${night}<span>${p.status} · ${p.kb} KB · ${p.via === 'bookmarklet' ? '' : `${p.ms} ms · `}via ${via}</span>`;
+}
+
+// The page is shown dark unless you chose its own colours (remembered in this browser).
+function setNight(on) {
+  stage.setNight(on);
+  try { localStorage.setItem('crawlspace.night', on ? '1' : '0'); } catch {}
+  if (state.page) pageBar(state.page);
 }
 
 function status(msg, bad = false) {
@@ -430,7 +438,10 @@ $('speed').addEventListener('click', () => {
   stage.speed = stage.speed === 1 ? 2 : stage.speed === 2 ? 4 : 1;
   $('speed').textContent = `${stage.speed}×`;
 });
-$('pagebar').addEventListener('click', (e) => { if (e.target.closest('#mapbtn')) siteMap.visible ? siteMap.hide() : showMap(); });
+$('pagebar').addEventListener('click', (e) => {
+  if (e.target.closest('#mapbtn')) siteMap.visible ? siteMap.hide() : showMap();
+  if (e.target.closest('#nightbtn')) setNight(!stage.night);
+});
 $('notice').addEventListener('click', (e) => {
   if (e.target.closest('.x')) $('notice').hidden = true;
   if (e.target.closest('[data-bm]')) toggleBm(true);
@@ -460,6 +471,9 @@ requestAnimationFrame(function frame(ts) {
 
 buildDock();
 updateRelease();
+let night = true;
+try { night = localStorage.getItem('crawlspace.night') !== '0'; } catch {}
+stage.setNight(night);
 const fromBookmarklet = receiveFromBookmarklet();
 Fetcher.init().then((p) => {
   $('proxy').textContent = p ? 'any website' : 'Wikipedia only';

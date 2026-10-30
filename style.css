@@ -104,6 +104,9 @@ body:not(.running) #skip, body:not(.running) #stop { display: none; }
 .pagebar span { font: 11px var(--mono); margin-left: auto; }
 .stage { position: relative; flex: 1; min-height: 0; background: #fff; }
 .stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+.stage.night, .stage.night iframe { background: #000; }
+.mapbtn.night { border-color: var(--line); color: var(--dim); }
+.mapbtn.night[aria-pressed="true"] { border-color: #8b91a7; color: var(--text); }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .caption {
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3; pointer-events: none;

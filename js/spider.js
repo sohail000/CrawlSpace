@@ -148,6 +148,9 @@ class SpiderBody {
       const sgn = ((px * ch + py * sh) < 0 ? -1 : 1) * (l.k < 2 ? 1 : -1);
       const kx = x + dx / 2 + px * hk * sgn, ky = y + dy / 2 + py * hk * sgn;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+      // joints: a bright knee and a small foot, like points of light
+      ctx.beginPath(); ctx.arc(kx, ky, lw * sp.legWidth * 0.95, 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.arc(fx, fy, lw * sp.legWidth * 0.6, 0, 6.2832); ctx.fill();
     }
     ctx.shadowBlur = 0;
     // abdomen behind, head in front
