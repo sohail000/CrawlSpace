@@ -33,6 +33,8 @@ const siteMap = new SiteMap({ box: $('map'), canvas: $('mapcanvas'), head: $('ma
   onClose() { siteMap.hide(); },
 });
 
+const thread = new Thread($('thread'), stage);
+
 const state = {
   // Nothing is picked until a page is on stage: then the table and pattern spiders pick themselves when
   // there is something for them. Spiders you tick or untick yourself stay as you left them.
@@ -529,6 +531,34 @@ function receiveFromBookmarklet() {
 
 function toggleBm(open = $('bm').hidden) { $('bm').hidden = !open; }
 
+// ---------- threads: rest on a result to see where it came from ----------
+
+let hovered = null, resting = null;
+
+// Only once the mouse has rested on a row (so sweeping down the list doesn't make the page jump about),
+// and never during a run: the camera is already following a spider then, and rows are still arriving.
+function engage(row) {
+  if (state.running || state.picking || siteMap.visible || !stage.doc) return;
+  const kind = row.dataset.kind, item = results.data[kind]?.[+row.dataset.i];
+  if (!item || (item.page && item.page !== stage.page?.url)) return; // it was caught on another page of the crawl
+  thread.show(row, item.el || item.target, SPIDERS.find((s) => s.kind === kind)?.color || '#fff');
+}
+
+function letGo() {
+  hovered = null;
+  clearTimeout(resting);
+  thread.hide();
+}
+
+$('rbody').addEventListener('mouseover', (e) => {
+  const row = e.target.closest('[data-kind][data-i]');
+  if (row === hovered) return;
+  letGo();
+  hovered = row;
+  if (row) resting = setTimeout(() => engage(row), 120);
+});
+$('rbody').addEventListener('mouseleave', letGo);
+
 // ---------- controls ----------
 
 $('go').addEventListener('submit', (e) => { e.preventDefault(); load($('url').value); });
@@ -570,6 +600,8 @@ requestAnimationFrame(function frame(ts) {
   const dt = Math.min(0.05, (ts - lastFrame) / 1000);
   stage.frame(dt);
   siteMap.frame(dt);
+  if (state.running && thread.want) thread.hide();
+  thread.frame(dt);
   lastFrame = ts;
   requestAnimationFrame(frame);
 });

@@ -19,7 +19,7 @@ The first screen is a live demo: a small made-up field-guide page that ships wit
 | **Reader** | The main text without menus or ads, as Markdown | Walks down the margin of each block it keeps |
 | **Mimic** | Whatever you point at. Click one product's name and get every product on the page as a table: name, price, link, image | Carries the outline of your pick from record to record, underlining each field it copies |
 
-Each catch peels off the page and hangs behind the spider on a silk thread (the real link text, price or email it caught) before going on to the results panel, and the page's outline shakes like a web. Click any result to see it on the page. The page is shown dark by default; **Original colours** in the page bar switches back.
+Each catch peels off the page and hangs behind the spider on a silk thread (the real link text, price or email it caught) before going on to the results panel, and the page's outline shakes like a web. Rest the mouse on a result and a silk thread runs from its row to its spot on the page, scrolling there if it is out of view (not while the spiders are working). Click any result to flash it on the page. The page is shown dark by default; **Original colours** in the page bar switches back.
 
 ## Teach the Mimic
 

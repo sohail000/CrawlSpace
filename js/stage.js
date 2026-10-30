@@ -26,7 +26,7 @@ class Stage {
 
   reset() {
     this.spiders = []; this.marks = []; this.effects = []; this.waiters = [];
-    this.track = null; this.glideTo = null; this.amp = 0; this.vibColor = '#ffffff'; this.last = {};
+    this.track = null; this.glideTo = null; this.pin = null; this.amp = 0; this.vibColor = '#ffffff'; this.last = {};
   }
 
   resize() {
@@ -86,6 +86,11 @@ class Stage {
     return { x: r.left + this.win.scrollX, y: r.top + this.win.scrollY, w: r.width, h: r.height };
   }
 
+  // The box of a result's spot on the page: the whole element, or just the first line of a link or text match.
+  itemRect(t) {
+    return t ? this.rectOf(t, t.nodeType === 1 && t.tagName !== 'A') : null;
+  }
+
   view() {
     const w = this.win;
     return { x: w.scrollX, y: w.scrollY, w: w.innerWidth, h: w.innerHeight };
@@ -105,6 +110,7 @@ class Stage {
     if (!r) return;
     if (r.y > v.y + 50 && r.y + r.h < v.y + v.h - 50) return;
     const y1 = Math.max(0, Math.min(r.y + r.h / 2 - v.h / 2, this.doc.documentElement.scrollHeight - v.h));
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return this.win.scrollTo(v.x, y1);
     this.glideTo = { y0: v.y, y1, t: 0 };
   }
 
@@ -383,6 +389,7 @@ class Stage {
       for (const m of this.marks) this.drawMark(m, v);
       for (const e of this.effects) this.drawEffect(e, v, true);
       for (const sp of this.spiders) { if (sp.cargo?.length) this.drawCargo(sp); sp.draw(ctx, this.now, 1.3, true); }
+      if (this.pin) this.drawPin(this.pin);
       if (this.hover) this.drawHover(this.hover);
       ctx.restore();
       for (const e of this.effects) this.drawEffect(e, v, false);
@@ -488,7 +495,7 @@ class Stage {
       ctx.globalAlpha = Math.max(0, 0.6 - t / 1.4); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(e.x0, e.y0); ctx.lineTo(e.x1, e.y1); ctx.stroke();
     } else if (inPage && e.type === 'flash') {
-      const r = this.rectOf(e.target, e.target.nodeType === 1 && e.target.tagName !== 'A');
+      const r = this.itemRect(e.target);
       if (r) {
         const k = Math.min(1, t / 1.6);
         ctx.globalAlpha = (1 - k) * (0.6 + 0.4 * Math.sin(t * 18));
@@ -559,6 +566,20 @@ class Stage {
       ctx.globalAlpha = Math.min(1, (this.now - t.born) / 0.25);
       this.tag(t.x, t.y, t.a, t);
     }
+    ctx.globalAlpha = 1;
+  }
+
+  // The item a result's thread is tied to: a soft pulsing outline, like a flash that holds.
+  drawPin(pin) {
+    const r = this.itemRect(pin.target);
+    if (!r) return;
+    const ctx = this.ctx;
+    ctx.strokeStyle = ctx.fillStyle = pin.color;
+    ctx.globalAlpha = pin.k * (0.14 + 0.1 * Math.sin(this.now * 6));
+    ctx.fillRect(r.x - 6, r.y - 6, r.w + 12, r.h + 12);
+    ctx.globalAlpha = pin.k * (0.65 + 0.3 * Math.sin(this.now * 6));
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(r.x - 6, r.y - 6, r.w + 12, r.h + 12);
     ctx.globalAlpha = 1;
   }
 
