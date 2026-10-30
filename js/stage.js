@@ -26,7 +26,7 @@ class Stage {
 
   reset() {
     this.spiders = []; this.marks = []; this.effects = []; this.waiters = [];
-    this.track = null; this.amp = 0; this.vibColor = '#ffffff'; this.last = {};
+    this.track = null; this.glideTo = null; this.amp = 0; this.vibColor = '#ffffff'; this.last = {};
   }
 
   resize() {
@@ -94,9 +94,18 @@ class Stage {
   // Bring something into view and pulse it (used when a result is clicked).
   flash(target, color) {
     if (!target || !this.win) return;
-    const el = target.nodeType === 1 ? target : target.startContainer?.parentElement;
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    this.glide(target);
     this.effects.push({ type: 'flash', target, color, born: this.now });
+  }
+
+  // Scroll the page on stage (and only that, never the window around it) so something sits mid-screen,
+  // easing over about 0.4 s. Does nothing if it is already comfortably in view.
+  glide(target) {
+    const r = this.rectOf(target, true), v = this.win && this.view();
+    if (!r) return;
+    if (r.y > v.y + 50 && r.y + r.h < v.y + v.h - 50) return;
+    const y1 = Math.max(0, Math.min(r.y + r.h / 2 - v.h / 2, this.doc.documentElement.scrollHeight - v.h));
+    this.glideTo = { y0: v.y, y1, t: 0 };
   }
 
   vibrate(a, color) { this.amp = Math.min(9, this.amp + a); if (color) this.vibColor = color; }
@@ -347,6 +356,11 @@ class Stage {
       const ty = s.y < v.y + 70 || s.y > v.y + v.h - 90 ? s.y - v.h * 0.42 : v.y;
       const tx = s.x < v.x + 30 || s.x > v.x + v.w - 30 ? s.x - v.w * 0.5 : v.x;
       if (Math.abs(ty - v.y) > 1 || Math.abs(tx - v.x) > 1) this.win.scrollTo(v.x + (tx - v.x) * Math.min(1, dt * 7), v.y + (ty - v.y) * Math.min(1, dt * 7));
+    }
+    if (this.glideTo && this.win) {
+      const g = this.glideTo, k = Math.min(1, (g.t += dt) / 0.4);
+      this.win.scrollTo(this.win.scrollX, g.y0 + (g.y1 - g.y0) * k * k * (3 - 2 * k));
+      if (k >= 1) this.glideTo = null;
     }
     this.amp *= Math.exp(-dt * 3.2);
     this.effects = this.effects.filter((e) => this.now - e.born < 1.6);

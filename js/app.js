@@ -40,26 +40,43 @@ const state = {
   running: false, stop: false, mimic: null, picking: false, site: null, demo: false,
 };
 
-// ---------- the dock: one card per spider ----------
+// ---------- the spider bar: one slim chip per spider ----------
+
+// Spiders that have settings get a ▾ that opens a small popover (the pattern, or "Teach it").
+function popoverFor(s) {
+  if (s.kind === 'regex') return `<b>${s.name}</b><p>${s.job}</p><label>Look for
+    <select id="pattern" aria-label="Pattern">${Object.entries(PATTERNS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join('')}<option value="custom">My own pattern…</option></select></label>
+    <input id="custom" placeholder="regex, e.g. ISBN[- ]?\\d+" hidden spellcheck="false" aria-label="Your own pattern">`;
+  if (s.kind === 'mimic') return `<b>${s.name}</b><p>${s.job}</p><button type="button" id="teach" class="primary" disabled>Teach it: click the page</button>`;
+  return '';
+}
 
 function buildDock() {
   $('dock').innerHTML = SPIDERS.map((s) => `
-    <label class="spider off" style="--c:${s.color}" data-kind="${s.kind}" title="${s.name}: ${s.job}">
-      <input type="checkbox" ${s.kind === 'mimic' ? 'disabled' : ''} data-kind="${s.kind}">
-      <canvas width="112" height="112" data-species="${s.species}" aria-hidden="true"></canvas>
-      <span class="sname"><b>${s.name}</b><em>${s.short}</em></span>
-      <span class="sjob">${s.job}</span>
-      <span class="scount" id="count-${s.kind}">–</span>
-      ${s.kind === 'regex' ? `<span class="pattern" onclick="event.preventDefault()">
-        <select id="pattern" aria-label="Pattern">${Object.entries(PATTERNS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join('')}<option value="custom">My own pattern…</option></select>
-        <input id="custom" placeholder="regex, e.g. ISBN[- ]?\\d+" hidden spellcheck="false"></span>` : ''}
-      ${s.kind === 'mimic' ? `<span class="pattern" onclick="event.preventDefault()"><button type="button" id="teach" disabled>Teach it: click the page</button></span>` : ''}
-    </label>`).join('');
+    <div class="chip off" style="--c:${s.color}" data-kind="${s.kind}" title="${s.name}: ${s.job}">
+      <label class="chipmain">
+        <input type="checkbox" ${s.kind === 'mimic' ? 'disabled' : ''} data-kind="${s.kind}">
+        <canvas width="72" height="72" data-species="${s.species}" aria-hidden="true"></canvas>
+        <span class="cname"><b><span class="full">${s.name}</span><span class="short">${s.short}</span></b><em id="count-${s.kind}">–</em></span>
+        <span class="tick" aria-hidden="true"></span>
+      </label>
+      ${popoverFor(s) ? `<button type="button" class="more" data-pop="${s.kind}" aria-haspopup="true" aria-expanded="false" aria-label="${s.name} settings">▾</button>` : ''}
+    </div>`).join('');
+  for (const s of SPIDERS) {
+    if (!popoverFor(s)) continue;
+    const pop = document.createElement('div');
+    pop.className = 'spop';
+    pop.id = `pop-${s.kind}`;
+    pop.hidden = true;
+    pop.style.setProperty('--c', s.color);
+    pop.innerHTML = popoverFor(s);
+    document.body.append(pop);
+  }
   for (const c of $('dock').querySelectorAll('canvas')) {
     const s = SPIDERS.find((x) => x.species === c.dataset.species);
     const ctx = c.getContext('2d');
     ctx.scale(2, 2);
-    const body = new SpiderBody(28, 30, { color: s.color, species: s.species, scale: 1.25 });
+    const body = new SpiderBody(18, 19, { color: s.color, species: s.species, scale: 0.8 });
     body.h = -Math.PI / 2 + 0.3;
     body.replant();
     body.draw(ctx, 0, 1.4);
@@ -67,6 +84,14 @@ function buildDock() {
   $('dock').addEventListener('change', (e) => {
     const k = e.target.dataset.kind;
     if (k) { state.touched.add(k); pick(k, e.target.checked); }
+  });
+  // Enter toggles a chip, like Space does for a checkbox
+  $('dock').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input[type="checkbox"]')) e.target.click(); });
+  $('dock').addEventListener('click', (e) => {
+    const more = e.target.closest('.more');
+    if (more) return togglePop(more.dataset.pop);
+    // the Mimic can't be ticked until it has been taught: its chip opens the "Teach it" popover instead
+    if (e.target.closest('.chip[data-kind="mimic"] .chipmain') && !state.mimic) { e.preventDefault(); togglePop('mimic'); }
   });
   $('pattern').addEventListener('change', () => { setPattern($('pattern').value); if (!$('custom').hidden) $('custom').focus(); scan(); });
   $('custom').addEventListener('input', () => scan());
@@ -77,8 +102,26 @@ function pick(kind, on) {
   const box = $('dock').querySelector(`input[data-kind="${kind}"]`);
   box.checked = on;
   on ? state.selected.add(kind) : state.selected.delete(kind);
-  box.closest('.spider').classList.toggle('off', !on);
+  box.closest('.chip').classList.toggle('off', !on);
   updateRelease();
+}
+
+// The popovers sit on the page (not in the bar), so the bar can scroll sideways on a phone without clipping them.
+function togglePop(kind) {
+  const pop = $(`pop-${kind}`), open = pop.hidden;
+  closePops();
+  if (!open) return;
+  const chip = $('dock').querySelector(`.chip[data-kind="${kind}"]`), r = chip.getBoundingClientRect();
+  pop.hidden = false;
+  pop.style.top = `${r.bottom + 6}px`;
+  pop.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8))}px`;
+  chip.querySelector('.more').setAttribute('aria-expanded', 'true');
+  pop.querySelector('select, button')?.focus();
+}
+
+function closePops() {
+  for (const p of document.querySelectorAll('.spop')) p.hidden = true;
+  for (const b of $('dock').querySelectorAll('.more')) b.setAttribute('aria-expanded', 'false');
 }
 
 function setPattern(key) {
@@ -236,6 +279,7 @@ function teach() {
   if (state.picking) return cancelPick();
   siteMap.hide();
   showNotice(null);
+  closePops();
   state.picking = true;
   document.body.classList.add('picking');
   $('teach').textContent = 'Cancel';
@@ -517,7 +561,8 @@ $('bmlink').addEventListener('click', (e) => {
   clearTimeout(flashBtn.t);
   flashBtn.t = setTimeout(() => { t.hidden = true; }, 1800);
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { toggleBm(false); if (siteMap.visible) siteMap.hide(); } });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { toggleBm(false); closePops(); if (siteMap.visible) siteMap.hide(); } });
+document.addEventListener('click', (e) => { if (!e.target.closest('.spop, .more, .chip[data-kind="mimic"]')) closePops(); });
 for (const b of document.querySelectorAll('[data-url]')) b.addEventListener('click', () => load(b.dataset.url));
 
 let lastFrame = performance.now();

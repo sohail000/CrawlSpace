@@ -41,17 +41,17 @@
 </header>
 
 <section class="dockbar">
-  <div class="dock" id="dock"></div>
+  <div class="dock" id="dock" role="group" aria-label="Spiders"></div>
   <div class="launch">
     <label class="scope">Crawl
       <select id="scope" aria-label="How much to crawl">
         <option value="page">this page</option>
-        <option value="5">this site, up to 5 pages</option>
-        <option value="10">this site, up to 10 pages</option>
-        <option value="25">this site, up to 25 pages</option>
+        <option value="5">site: 5 pages</option>
+        <option value="10">site: 10 pages</option>
+        <option value="25">site: 25 pages</option>
       </select>
     </label>
-    <button id="release" class="primary big" disabled>Release spiders</button>
+    <button id="release" class="primary" disabled>Release spiders</button>
     <div class="runctl">
       <button id="speed" title="Animation speed">1×</button>
       <button id="skip" title="Finish the animations instantly">Skip</button>
