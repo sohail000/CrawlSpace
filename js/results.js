@@ -17,6 +17,9 @@ class Results {
     this.cols = [];
     this.notes = {};
     this.active = null;
+    this.queue = [];   // catches waiting to be drawn: they are added to the list once per frame, not once each
+    this.fillToken = (this.fillToken || 0) + 1;
+    this.filling = false;
     this.renderTabs();
     this.els.body.innerHTML = '<p class="hint">Results appear here as the spiders catch them. Click any result to see it on the page.</p>';
   }
@@ -38,7 +41,7 @@ class Results {
     this.render();
   }
 
-  clear(kind) { this.data[kind] = []; }
+  clear(kind) { this.data[kind] = []; this.queue = this.queue.filter((q) => q[0] !== kind); }
 
   begin(kind, page, out) {
     this.notes[kind] = out.notes || [];
@@ -64,12 +67,20 @@ class Results {
       item.page = page;
       this.data[kind].push(item);
     }
+    this.queue.push([kind, item, this.data[kind].length - 1]);
+    if (!this.raf) this.raf = requestAnimationFrame(() => this.flush());
+  }
+
+  // Draw everything caught since the last frame in one go: the tabs, the new rows, and the summary.
+  flush() {
+    this.raf = 0;
+    const batch = this.queue.splice(0), kind = this.active;
     this.renderTabs();
-    if (this.active === kind) {
-      this.append(kind, item);
-      const sum = this.els.body.querySelector('.rhead span');
-      if (sum) sum.innerHTML = this.summary(kind);
-    }
+    const mine = batch.filter((q) => q[0] === kind);
+    if (!mine.length || this.filling) return; // a list that is still filling in picks the new ones up itself
+    this.appendMany(kind, mine);
+    const sum = this.els.body.querySelector('.rhead span');
+    if (sum) sum.innerHTML = this.summary(kind);
   }
 
   summary(kind) {
@@ -95,6 +106,9 @@ class Results {
     const k = this.active, body = this.els.body;
     if (!k) return;
     const D = this.data;
+    this.fillToken++; // a fill from the last render stops here
+    this.filling = false;
+    this.queue = this.queue.filter((q) => q[0] !== k); // render draws all of this kind, queued ones included
     if (k === 'links') {
       const f = this.filter.links;
       const counts = { internal: 0, external: 0, email: 0, phone: 0, file: 0, broken: 0 };
@@ -103,19 +117,19 @@ class Results {
       body.innerHTML = this.head('links', this.summary('links'),
         `<button data-act="check">Check for broken links</button><button data-act="csv">CSV</button><button data-act="json">JSON</button>`) +
         `<div class="chips">${chips.map(([v, l]) => `<button data-filter="${v}" aria-pressed="${f === v}">${l}</button>`).join('')}</div><ol class="rows" id="rows"></ol>`;
-      for (const it of D.links) this.append('links', it);
+      this.fill('links');
     } else if (k === 'tables') {
       body.innerHTML = this.head('tables', this.summary('tables'), `<button data-act="json">JSON</button>`) + '<div class="cards" id="rows"></div>';
-      for (const it of D.tables) this.append('tables', it);
+      this.fill('tables');
     } else if (k === 'regex') {
       body.innerHTML = this.head('regex', this.summary('regex'), `<button data-act="copy">Copy</button><button data-act="csv">CSV</button>`) + '<ol class="rows" id="rows"></ol>';
-      for (const it of D.regex) this.append('regex', it);
+      this.fill('regex');
     } else if (k === 'images') {
       const f = this.filter.images;
       const missing = D.images.filter((i) => i.altState === 'missing').length;
       body.innerHTML = this.head('images', this.summary('images'), `<button data-act="csv">CSV</button>`) +
         `<div class="chips"><button data-filter="all" aria-pressed="${f === 'all'}">All</button><button data-filter="missing" aria-pressed="${f === 'missing'}">Missing alt ${missing}</button></div><div class="grid" id="rows"></div>`;
-      for (const it of D.images) this.append('images', it);
+      this.fill('images');
     } else if (k === 'text') {
       body.innerHTML = this.head('text', this.summary('text'), `<button data-act="copy">Copy Markdown</button><button data-act="md">Download .md</button>`) +
         `<div id="rows">${D.text.map((s) => this.textSection(s)).join('')}</div>`;
@@ -123,7 +137,7 @@ class Results {
       body.innerHTML = this.head('mimic', this.summary('mimic'), `<button data-act="csv">CSV</button><button data-act="tsv">Copy for Excel</button><button data-act="json">JSON</button>`) +
         `<div class="chips cols">${this.cols.map((c) => `<button data-drop="${esc(c.key)}" title="Leave this column out">${esc(c.name)} <span aria-hidden="true">×</span></button>`).join('')}</div>` +
         `<div class="ptable"><table><thead><tr>${this.cols.map((c) => `<th>${esc(c.name)}</th>`).join('')}</tr></thead><tbody id="rows"></tbody></table></div>`;
-      for (const it of D.mimic) this.append('mimic', it);
+      this.fill('mimic');
     } else if (k === 'pages') {
       body.innerHTML = this.head('pages', this.summary('pages'), `<button data-act="map">Site map</button><button data-act="csv">CSV</button>`) +
         `<ol class="rows">${D.pages.map((p) => `<li class="row"><span class="badge ${p.error ? 'b-bad' : 'b-ok'}">${p.error ? 'fell' : p.status}</span><span class="rmain"><b>${esc(p.title || p.url)}</b><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)}</a>${p.error ? `<small class="bad">${esc(p.error)}</small>` : `<small>${p.kb} KB · ${p.ms} ms</small>`}</span></li>`).join('')}</ol>`;
@@ -134,35 +148,30 @@ class Results {
     return `<section class="md"><h4>${esc(s.title || s.page)} <small>${s.words.toLocaleString()} words</small></h4><pre>${esc(s.md.join('\n\n'))}</pre></section>`;
   }
 
-  append(kind, it) {
+  // Long lists are drawn in chunks, one per frame, so 1,000+ rows never freeze the page. Rows caught while it
+  // fills are picked up too, because it reads the live list.
+  fill(kind) {
+    const token = this.fillToken, list = this.els.body.querySelector('#rows'), all = this.data[kind];
+    if (!list) return;
+    let done = 0;
+    this.filling = true;
+    const step = () => {
+      if (token !== this.fillToken) return;
+      const end = Math.min(all.length, done + 300);
+      this.insert(list, kind, all.slice(done, end).map((it, k) => [kind, it, done + k]));
+      done = end;
+      if (done < all.length) return requestAnimationFrame(step);
+      this.filling = false;
+      const sum = this.els.body.querySelector('.rhead span');
+      if (sum) sum.innerHTML = this.summary(kind); // rows may have arrived while it filled
+    };
+    step();
+  }
+
+  appendMany(kind, entries) {
     const list = this.els.body.querySelector('#rows');
     if (!list) return;
-    const i = this.data[kind].indexOf(it);
-    if (kind === 'links') {
-      const f = this.filter.links;
-      const broken = it.status >= 400 || it.status < 0;
-      if (f !== 'all' && !(f === 'broken' ? broken : f === 'contact' ? it.kind === 'email' || it.kind === 'phone' : it.kind === f)) return;
-      const st = it.status == null ? '' : it.status < 0 ? 'robots' : it.status === 0 ? '?' : it.status;
-      list.insertAdjacentHTML('beforeend', `<li class="row" data-kind="links" data-i="${i}"><span class="badge b-${it.kind}">${it.kind === 'internal' ? 'site' : it.kind === 'external' ? 'away' : it.kind}</span><span class="rmain"><b>${esc(it.text || '(no text)')}</b><a href="${esc(it.href)}" target="_blank" rel="noopener">${esc(it.href)}</a></span><span class="st ${broken ? 'bad' : ''}">${st}${it.count > 1 ? ` <small>×${it.count}</small>` : ''}</span></li>`);
-    } else if (kind === 'tables') {
-      const prev = it.rows.slice(0, 7).map((r, ri) => `<tr>${r.slice(0, 7).map((c) => (ri === 0 && it.header ? `<th>${esc(short(c, 40))}</th>` : `<td>${esc(short(c, 40))}</td>`)).join('')}</tr>`).join('');
-      list.insertAdjacentHTML('beforeend', `<div class="card" data-kind="tables" data-i="${i}"><div class="ct"><b>${esc(it.caption || 'Table ' + (i + 1))}</b><small>${it.rows.length} rows × ${it.cols} columns</small></div><div class="tw"><table>${prev}</table></div><div class="acts"><button data-act="table-csv" data-i="${i}">Download CSV</button><button data-act="table-tsv" data-i="${i}">Copy for Excel</button><button data-act="show" data-i="${i}">Show on page</button></div></div>`);
-    } else if (kind === 'regex') {
-      const ctx = it.context.trim() === it.value ? '' : esc(it.context).replace(esc(it.value), `<mark>${esc(it.value)}</mark>`);
-      list.insertAdjacentHTML('beforeend', `<li class="row r2" data-kind="regex" data-i="${i}"><span class="rmain"><b class="mono">${esc(it.value)}</b>${ctx ? `<small>${ctx}</small>` : ''}</span><span class="st">${it.count > 1 ? '×' + it.count : ''}</span></li>`);
-    } else if (kind === 'images') {
-      if (this.filter.images === 'missing' && it.altState !== 'missing') return;
-      const badge = it.altState === 'ok' ? `<span class="badge b-ok">alt</span>` : it.altState === 'decorative' ? `<span class="badge">decorative</span>` : `<span class="badge b-bad">no alt</span>`;
-      list.insertAdjacentHTML('beforeend', `<figure class="thumb" data-kind="images" data-i="${i}"><img src="${esc(it.src)}" alt="" loading="lazy" referrerpolicy="no-referrer"><figcaption>${badge}<small>${it.w && it.h ? `${it.w}×${it.h}` : ''}</small><span>${esc(short(it.alt || it.src.split('/').pop().split('?')[0], 60))}</span></figcaption></figure>`);
-    } else if (kind === 'mimic') {
-      const cell = (c) => {
-        const v = it.values[c.key] || '';
-        if (c.key.endsWith('@src') && v) return `<td><img src="${esc(v)}" alt="" loading="lazy" referrerpolicy="no-referrer"></td>`;
-        if (c.key.endsWith('@href') && v) return `<td><a href="${esc(v)}" target="_blank" rel="noopener" title="${esc(v)}">${esc(short(v.replace(/^https?:\/\/[^/]+/, '') || v, 40))}</a></td>`;
-        return `<td title="${esc(v)}">${esc(short(v, 80))}</td>`;
-      };
-      list.insertAdjacentHTML('beforeend', `<tr data-kind="mimic" data-i="${i}" class="${it.pick ? 'pick' : ''}">${this.cols.map(cell).join('')}</tr>`);
-    } else if (kind === 'text') {
+    if (kind === 'text') {
       const s = this.data.text[this.data.text.length - 1];
       const secs = list.querySelectorAll('section.md');
       const html = this.textSection(s);
@@ -171,8 +180,47 @@ class Results {
       if (pre) pre.scrollTop = pre.scrollHeight;
       return;
     }
-    const pane = this.els.body;
-    if (pane.scrollHeight - pane.scrollTop - pane.clientHeight < 120) pane.scrollTop = pane.scrollHeight;
+    this.insert(list, kind, entries);
+  }
+
+  insert(list, kind, entries) {
+    const html = entries.map(([, it, i]) => this.rowHtml(kind, it, i)).join('');
+    if (!html) return;
+    const pane = this.els.body, atEnd = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 120;
+    if (entries.length > 20) list.classList.add('bulk'); // no slide-in animation for a crowd of rows
+    list.insertAdjacentHTML('beforeend', html);
+    if (atEnd) pane.scrollTop = pane.scrollHeight;
+  }
+
+  rowHtml(kind, it, i) {
+    if (kind === 'links') {
+      const f = this.filter.links;
+      const broken = it.status >= 400 || it.status < 0;
+      if (f !== 'all' && !(f === 'broken' ? broken : f === 'contact' ? it.kind === 'email' || it.kind === 'phone' : it.kind === f)) return '';
+      const st = it.status == null ? '' : it.status < 0 ? 'robots' : it.status === 0 ? '?' : it.status;
+      return `<li class="row" data-kind="links" data-i="${i}"><span class="badge b-${it.kind}">${it.kind === 'internal' ? 'site' : it.kind === 'external' ? 'away' : it.kind}</span><span class="rmain"><b>${esc(it.text || '(no text)')}</b><a href="${esc(it.href)}" target="_blank" rel="noopener">${esc(it.href)}</a></span><span class="st ${broken ? 'bad' : ''}">${st}${it.count > 1 ? ` <small>×${it.count}</small>` : ''}</span></li>`;
+    }
+    if (kind === 'tables') {
+      const prev = it.rows.slice(0, 7).map((r, ri) => `<tr>${r.slice(0, 7).map((c) => (ri === 0 && it.header ? `<th>${esc(short(c, 40))}</th>` : `<td>${esc(short(c, 40))}</td>`)).join('')}</tr>`).join('');
+      return `<div class="card" data-kind="tables" data-i="${i}"><div class="ct"><b>${esc(it.caption || 'Table ' + (i + 1))}</b><small>${it.rows.length} rows × ${it.cols} columns</small></div><div class="tw"><table>${prev}</table></div><div class="acts"><button data-act="table-csv" data-i="${i}">Download CSV</button><button data-act="table-tsv" data-i="${i}">Copy for Excel</button><button data-act="show" data-i="${i}">Show on page</button></div></div>`;
+    }
+    if (kind === 'regex') {
+      const ctx = it.context.trim() === it.value ? '' : esc(it.context).replace(esc(it.value), `<mark>${esc(it.value)}</mark>`);
+      return `<li class="row r2" data-kind="regex" data-i="${i}"><span class="rmain"><b class="mono">${esc(it.value)}</b>${ctx ? `<small>${ctx}</small>` : ''}</span><span class="st">${it.count > 1 ? '×' + it.count : ''}</span></li>`;
+    }
+    if (kind === 'images') {
+      if (this.filter.images === 'missing' && it.altState !== 'missing') return '';
+      const badge = it.altState === 'ok' ? `<span class="badge b-ok">alt</span>` : it.altState === 'decorative' ? `<span class="badge">decorative</span>` : `<span class="badge b-bad">no alt</span>`;
+      return `<figure class="thumb" data-kind="images" data-i="${i}"><img src="${esc(it.src)}" alt="" loading="lazy" referrerpolicy="no-referrer"><figcaption>${badge}<small>${it.w && it.h ? `${it.w}×${it.h}` : ''}</small><span>${esc(short(it.alt || it.src.split('/').pop().split('?')[0], 60))}</span></figcaption></figure>`;
+    }
+    // mimic
+    const cell = (c) => {
+      const v = it.values[c.key] || '';
+      if (c.key.endsWith('@src') && v) return `<td><img src="${esc(v)}" alt="" loading="lazy" referrerpolicy="no-referrer"></td>`;
+      if (c.key.endsWith('@href') && v) return `<td><a href="${esc(v)}" target="_blank" rel="noopener" title="${esc(v)}">${esc(short(v.replace(/^https?:\/\/[^/]+/, '') || v, 40))}</a></td>`;
+      return `<td title="${esc(v)}">${esc(short(v, 80))}</td>`;
+    };
+    return `<tr data-kind="mimic" data-i="${i}" class="${it.pick ? 'pick' : ''}">${this.cols.map(cell).join('')}</tr>`;
   }
 
   updateLink(it) {

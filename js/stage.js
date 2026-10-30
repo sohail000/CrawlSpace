@@ -19,6 +19,12 @@ class Stage {
     this.skip = false;
     this.now = 0;
     this.tick = 0;
+    // Where marks sit on the page only changes when the layout does, so their positions are cached and
+    // looked up again (a few per frame) after layoutGen moves on. The overlay is only redrawn when something changed.
+    this.layoutGen = 0;
+    this.busyUntil = 0;
+    this.lastView = null;
+    this.lastBusy = false;
     this.reset();
     new ResizeObserver(() => this.resize()).observe(els.wrap);
     this.resize();
@@ -27,6 +33,7 @@ class Stage {
   reset() {
     this.spiders = []; this.marks = []; this.effects = []; this.waiters = [];
     this.track = null; this.glideTo = null; this.pin = null; this.amp = 0; this.vibColor = '#ffffff'; this.last = {};
+    this.dirty = true;
   }
 
   resize() {
@@ -35,6 +42,7 @@ class Stage {
     this.W = r.width; this.H = r.height;
     this.els.canvas.width = Math.round(r.width * this.dpr);
     this.els.canvas.height = Math.round(r.height * this.dpr);
+    this.dirty = true;
   }
 
   // ---------- the page ----------
@@ -69,11 +77,28 @@ class Stage {
     this.doc = frame.contentDocument;
     this.win = frame.contentWindow;
     this.page = page;
+    this.watchLayout();
     // The stage is for watching: links and forms on it do nothing when clicked.
     this.doc.addEventListener('click', (e) => { if (e.target.closest?.('a, button, input, select, label, summary, area')) e.preventDefault(); }, true);
     this.doc.addEventListener('submit', (e) => e.preventDefault(), true);
     await new Promise((r) => setTimeout(r, 350)); // let fonts and layout settle
     return this.doc;
+  }
+
+  // Anything that moves things around on the page (a resize, a font or an image arriving) invalidates the cached positions.
+  watchLayout() {
+    this.layoutObserver?.disconnect();
+    const moved = () => { this.layoutGen++; this.dirty = true; };
+    this.layoutObserver = new ResizeObserver(moved);
+    this.layoutObserver.observe(this.doc.documentElement);
+    this.doc.addEventListener('load', moved, true); // images fire load without bubbling
+    this.doc.fonts?.addEventListener('loadingdone', moved);
+  }
+
+  addMark(m, r) {
+    m.r = r; m.gen = this.layoutGen;
+    this.marks.push(m);
+    this.busyUntil = this.now + 0.8; // marks fade and grow in over about half a second
   }
 
   // Where something is, in page coordinates (the whole box, or the first line of a link or text match).
@@ -190,7 +215,7 @@ class Stage {
     this.hover = null;
   }
 
-  clearMarks(type) { this.marks = this.marks.filter((m) => m.type !== type); }
+  clearMarks(type) { this.marks = this.marks.filter((m) => m.type !== type); this.dirty = true; }
 
   // ---------- timing ----------
 
@@ -260,7 +285,7 @@ class Stage {
     if (!r) return;
     if (animate) await this.go(sp, r.x - 3, r.y + r.h / 2);
     const mark = { type: 'knot', target: it.el, item: it, color: def.color, prev: this.last.links || null, walked: animate, born: this.now };
-    this.marks.push(mark);
+    this.addMark(mark, r);
     this.last.links = mark;
     this.vibrate(0.5, def.color);
     if (animate) await this.wait(0.3);
@@ -271,7 +296,7 @@ class Stage {
     const r = this.rectOf(it.el, true);
     if (!r) return;
     const mark = { type: 'wrap', target: it.el, color: def.color, walker: null, born: this.now, hatchAt: animate ? Infinity : this.now - 1 };
-    this.marks.push(mark);
+    this.addMark(mark, r);
     if (animate) {
       await this.go(sp, r.x, r.y);
       mark.walker = sp;
@@ -280,6 +305,7 @@ class Stage {
       for (let k = 0; k < corners.length; k++) { mark.from = k; await this.go(sp, corners[k][0], corners[k][1]); }
       mark.walker = null;
       mark.hatchAt = this.now;
+      this.busyUntil = this.now + 0.7;
       await this.wait(0.45);
       const v = this.view();
       this.effects.push({ type: 'fly', x: r.x + r.w / 2 - v.x, y: r.y + Math.min(r.h, v.h) / 2 - v.y, color: def.color, born: this.now });
@@ -292,7 +318,7 @@ class Stage {
     const r = this.rectOf(it.target);
     if (!r) return;
     if (animate) await this.go(sp, r.x + r.w / 2, r.y - 3, 'jump');
-    this.marks.push({ type: 'bite', target: it.target, color: def.color, born: this.now });
+    this.addMark({ type: 'bite', target: it.target, color: def.color, born: this.now }, r);
     if (animate) this.effects.push({ type: 'burst', x: r.x + r.w / 2, y: r.y + r.h / 2, color: def.color, born: this.now });
     this.vibrate(1, def.color);
     if (animate) await this.wait(0.35);
@@ -303,7 +329,7 @@ class Stage {
     const r = this.rectOf(it.el, true);
     if (!r) return;
     if (animate) await this.go(sp, r.x + 8, r.y + 8, 'sprint');
-    this.marks.push({ type: 'tag', target: it.el, item: it, color: def.color, born: this.now });
+    this.addMark({ type: 'tag', target: it.el, item: it, color: def.color, born: this.now }, r);
     this.vibrate(0.8, def.color);
     if (animate) await this.wait(0.3);
   }
@@ -313,7 +339,7 @@ class Stage {
     const r = this.rectOf(it.el, true);
     if (!r) return;
     const mark = { type: 'margin', target: it.el, color: def.color, walker: null, born: this.now };
-    this.marks.push(mark);
+    this.addMark(mark, r);
     if (animate) {
       await this.go(sp, r.x - 10, r.y);
       mark.walker = sp;
@@ -334,7 +360,7 @@ class Stage {
       if (from) { this.effects.push({ type: 'morph', from, to: r, color: def.color, born: this.now }); await this.wait(0.35); }
     }
     const mark = { type: 'stamp', target: it.el, fields: it.fieldEls, pick: it.pick, color: def.color, born: this.now };
-    this.marks.push(mark);
+    this.addMark(mark, r);
     this.last.mimic = mark;
     this.vibrate(0.7, def.color);
     if (animate) await this.wait(0.25);
@@ -370,11 +396,25 @@ class Stage {
     }
     this.amp *= Math.exp(-dt * 3.2);
     this.effects = this.effects.filter((e) => this.now - e.born < 1.6);
+    if (!this.needsDraw()) return;
+    this.refreshes = 60; // at most this many marks look their position up again per frame
     this.draw();
   }
 
+  // False when the overlay would come out exactly as it already is: nobody moving, nothing fading, no outline
+  // shaking, and the page not scrolled since the last draw.
+  needsDraw() {
+    if (this.dirty || this.lastBusy || this.now < this.busyUntil) return true;
+    if (this.spiders.length || this.effects.length || this.hover || this.pin || this.amp > 0.15) return true;
+    const v = this.win && this.view(), l = this.lastView;
+    return Boolean(v) && (!l || v.x !== l.x || v.y !== l.y || v.w !== l.w || v.h !== l.h);
+  }
+
   markRect(m) {
-    if (!m.r || this.tick % 8 === 0) m.r = this.rectOf(m.target, m.type !== 'knot' && m.type !== 'bite');
+    if (!m.r || (m.gen !== this.layoutGen && this.refreshes-- > 0)) {
+      m.r = this.rectOf(m.target, m.type !== 'knot' && m.type !== 'bite');
+      m.gen = this.layoutGen;
+    }
     return m.r;
   }
 
@@ -382,8 +422,11 @@ class Stage {
     const { ctx, dpr } = this;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.W, this.H);
+    this.dirty = false;
+    this.lastView = this.win ? this.view() : null;
+    this.lastBusy = Boolean(this.spiders.length || this.effects.length || this.hover || this.pin || this.amp > 0.15);
     if (this.win && this.doc) {
-      const v = this.view();
+      const v = this.lastView;
       ctx.save();
       ctx.translate(-v.x, -v.y);
       for (const m of this.marks) this.drawMark(m, v);
@@ -398,8 +441,10 @@ class Stage {
   }
 
   drawMark(m, v) {
-    const ctx = this.ctx, r = this.markRect(m);
-    if (!r || r.y > v.y + v.h + 400 || r.y + r.h < v.y - 400) return;
+    const ctx = this.ctx, far = (q) => q.y > v.y + v.h + 400 || q.y + q.h < v.y - 400;
+    if (m.r && far(m.r)) return; // off screen: skip it before any position lookup
+    const r = this.markRect(m);
+    if (!r || far(r)) return;
     const age = Math.min(1, (this.now - m.born) / 0.35);
     ctx.strokeStyle = ctx.fillStyle = m.color;
     ctx.lineWidth = 1.2;
@@ -464,7 +509,7 @@ class Stage {
       ctx.setLineDash([5, 4]);
       ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
       ctx.setLineDash([]);
-      if (!m.fr || this.tick % 8 === 0) m.fr = (m.fields || []).map((f) => this.rectOf(f, true));
+      if (!m.fr || m.frGen !== this.layoutGen) { m.fr = (m.fields || []).map((f) => this.rectOf(f, true)); m.frGen = this.layoutGen; }
       ctx.lineWidth = 2;
       for (const f of m.fr) {
         if (!f) continue;

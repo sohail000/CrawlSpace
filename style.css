@@ -251,6 +251,7 @@ body:not(.running) #skip, body:not(.running) #stop { display: none; }
 .ptable tbody tr:hover { background: var(--panel-2); }
 .ptable tr.pick td:first-child { box-shadow: inset 3px 0 0 #f472b6; }
 @keyframes rowin { from { opacity: 0; transform: translateY(-4px); } }
+.bulk > * { animation: none !important; }
 
 #thread { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 25; pointer-events: none; }
 
