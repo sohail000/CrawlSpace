@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Crawlspace · watch spiders crawl any web page</title>
-<meta name="description" content="Paste a web address. Five specialised spiders crawl the page on stage and catch its links, tables, emails and phone numbers, images and text, ready to export.">
+<meta name="description" content="Drop a link. Watch the hunt. Six specialised spiders turn web pages into useful data, right in front of you. Free, no AI, no account.">
 <meta property="og:title" content="Crawlspace: watch spiders crawl any web page">
-<meta property="og:description" content="Five specialised spiders catch links, tables, patterns, images and text from any page, live, ready to export.">
+<meta property="og:description" content="Drop a link. Watch the hunt. Six spiders catch links, tables, prices, images and text. Your next dataset is hiding in plain sight.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://sohail000.github.io/CrawlSpace/assets/preview.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -20,11 +20,12 @@
 <body>
 <header class="top">
   <a class="brand" href="./"><svg viewBox="0 0 32 32" aria-hidden="true"><g stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"><path d="M16 16 7 9M16 16 6 16M16 16 7 23M16 16 25 9M16 16 26 16M16 16 25 23M7 9 4 4M25 9 28 4M7 23 4 28M25 23 28 28"/></g><circle cx="16" cy="16" r="4.5" fill="currentColor"/></svg><b>Crawlspace</b></a>
-  <form id="go" class="address" autocomplete="off">
-    <input id="url" type="text" inputmode="url" placeholder="Paste a web address, e.g. en.wikipedia.org/wiki/Spider" spellcheck="false" aria-label="Web address">
-    <button type="submit" class="primary">Load page</button>
-  </form>
+  <span class="brandnote">A SMALL WEB EXPEDITION</span>
+  <span class="topspace"></span>
   <span class="pill" id="proxy" title="">checking…</span>
+  <button id="sound" class="ghost" aria-pressed="false" title="Optional sounds for real catches">♪ Sound off</button>
+  <button id="motion" class="ghost" aria-pressed="true" title="Toggle stage shake">Shake on</button>
+  <button id="helpbtn" class="ghost" aria-label="Keyboard shortcuts">?</button>
   <button id="bmbtn" class="ghost" aria-controls="bm">Bookmarklet</button>
   <div class="popover" id="bm" role="dialog" aria-label="The Crawlspace bookmarklet" hidden>
     <b>Crawl pages that need JavaScript</b>
@@ -40,9 +41,29 @@
   </div>
 </header>
 
+<section class="intro" aria-label="Start an expedition">
+  <div class="introcopy">
+    <span class="eyebrow"><i></i> THE INTERNET. UNTANGLED.</span>
+    <h1>Drop a link. <br><span>Watch the hunt.</span></h1>
+    <p>Turn any page into a collection worth keeping. <br>Six little specialists. Real data. Nothing hidden.</p>
+  </div>
+  <div class="entry">
+    <label class="eyebrow" for="url">01 / CHOOSE YOUR TERRITORY</label>
+    <form id="go" class="address" autocomplete="off">
+      <span class="addressicon" aria-hidden="true">↗</span>
+      <input id="url" type="text" inputmode="url" placeholder="Paste a website address…" spellcheck="false" aria-label="Web address">
+      <button type="submit" class="primary">Load page <span aria-hidden="true">↗</span></button>
+    </form>
+    <div class="starters"><span>Or try a hunt</span><button data-hunt="prices">$ Catch prices</button><button data-hunt="tables">▦ Collect tables</button><button data-hunt="mimic">⊞ Copy a collection</button></div>
+    <div class="promises"><span>No account</span><span>No AI</span><span>Free & open source</span><a href="https://github.com/sohail000/CrawlSpace" target="_blank" rel="noopener">Made to explore ↗</a></div>
+  </div>
+</section>
+
 <section class="dockbar">
+  <div class="sectionlabel"><span class="eyebrow">02 / PICK YOUR CREW</span><span>Each spider has a specialty. Pick a few, then let them loose.</span></div>
   <div class="dock" id="dock" role="group" aria-label="Spiders"></div>
   <div class="launch">
+    <span class="crewhelp"><span id="crewcount">0</span> specialists selected <span class="keyhint">1–6 to choose</span></span>
     <label class="scope">Crawl
       <select id="scope" aria-label="How much to crawl">
         <option value="page">this page</option>
@@ -51,7 +72,7 @@
         <option value="25">site: 25 pages</option>
       </select>
     </label>
-    <button id="release" class="primary" disabled>Release spiders</button>
+    <button id="release" class="primary" disabled>Release spiders <span aria-hidden="true">↗</span></button>
     <div class="runctl">
       <button id="speed" title="Animation speed">1×</button>
       <button id="skip" title="Finish the animations instantly">Skip</button>
@@ -62,6 +83,7 @@
 
 <main class="main">
   <section class="stagebox" id="stagebox">
+    <div class="paneltitle"><span><i class="live-dot"></i> THE FIELD</span><span id="fieldstate">LIVE DEMO</span></div>
     <div class="pagebar" id="pagebar"><b>No page on stage</b></div>
     <div class="stage" id="stage">
       <iframe id="frame" title="The page on stage" sandbox="allow-same-origin" referrerpolicy="no-referrer"></iframe>
@@ -84,22 +106,41 @@
           <button data-url="https://quotes.toscrape.com/" data-needs-proxy hidden>quotes.toscrape.com <small>links</small></button>
         </div>
       </div>
-      <div class="loader" aria-hidden="true"></div>
+      <div class="loader" role="status"><canvas id="loadspider" width="160" height="180" aria-hidden="true"></canvas><b>Spinning a way in…</b><span>Fetching the real page</span></div>
     </div>
   </section>
 
   <aside class="results">
+    <div class="paneltitle"><span>THE HAUL <b id="haulcount">0</b></span><button id="open-summary" disabled title="View totals and download your collection">Your collection ↗</button></div>
     <nav class="rtabs" id="rtabs" aria-label="Results by spider"></nav>
     <div class="rbody" id="rbody"></div>
+    <div class="haulfoot"><span id="haulnote">Every catch has a source.</span><span>CSV / JSON / MD</span></div>
+    <section id="summary" class="summary" aria-labelledby="summary-title" hidden>
+      <button class="x" id="close-summary" aria-label="Close collection summary">×</button>
+      <span class="eyebrow" id="summary-label">EXPEDITION COMPLETE</span>
+      <div class="seal" aria-hidden="true">✳</div>
+      <h2 id="summary-title">A good day's catch.</h2>
+      <p id="summary-detail"></p>
+      <div id="summary-stats" class="summary-stats"></div>
+      <button id="download-all" class="primary">Download everything <span aria-hidden="true">↓</span></button>
+      <small>One ZIP. Your data, ready to use.</small>
+      <button id="browse-results" class="linkish">Explore the individual catches →</button>
+    </section>
   </aside>
 </main>
 
 <footer class="foot">
-  <span id="status">Paste a web address to begin.</span>
+  <span id="status" role="status">Paste a web address to begin.</span>
   <span class="credit">Pages are fetched politely (robots.txt respected) and shown without their scripts. · <a href="https://github.com/sohail000/CrawlSpace" target="_blank" rel="noopener">Source</a></span>
 </footer>
 <div class="toast" id="toast" hidden></div>
 <canvas id="thread" aria-hidden="true"></canvas>
+<dialog id="shortcuts" aria-labelledby="shortcuts-title">
+  <button class="x" id="close-help" aria-label="Close shortcuts">×</button>
+  <span class="eyebrow">A FEW SHORTCUTS THROUGH THE WEB</span><h2 id="shortcuts-title">At your fingertips.</h2>
+  <dl><dt><kbd>Space</kbd></dt><dd>Release your spiders</dd><dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Choose your crew</dd><dt><kbd>S</kbd></dt><dd>Skip to the catches</dd><dt><kbd>Esc</kbd></dt><dd>Stop / close</dd><dt><kbd>D</kbd></dt><dd>Dark / original page</dd><dt><kbd>?</kbd></dt><dd>This little guide</dd></dl>
+  <p>Shortcuts pause while you type or use a control.</p>
+</dialog>
 
 <script src="js/extract.js"></script>
 <script src="js/fetcher.js"></script>
@@ -109,6 +150,7 @@
 <script src="js/sitemap.js"></script>
 <script src="js/thread.js"></script>
 <script src="js/demo.js"></script>
+<script src="js/experience.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -6,7 +6,21 @@
 
 The first screen is a live demo: a small made-up field-guide page that ships with Crawlspace, already being crawled by the Funnel-web, the Jumping spider (prices) and the Mimic. It stops the moment you type an address or load a page. If your system asks for reduced motion, it shows the finished results with no animation.
 
-![The funnel-web spider wrapping a Wikipedia table in silk, with the clean table in the results panel](assets/preview.png)
+The workspace has a warm ink-and-brass theme, six illustrated crew selectors, and a live **Haul** panel. Start with **Catch prices** (Books to Scrape), **Collect tables** (Wikipedia), or **Copy a collection** (the bundled Mimic sample), or paste your own address. The sample is always labelled as sample data.
+
+## Feel the catch
+
+- **Sound:** click **Sound off** in the top bar to enable soft silk plucks. Each spider has its own pitch. Audio is made locally with Web Audio, starts only after a user gesture, and is limited to fewer than eight plucks a second. The choice is remembered; sound starts off for new visitors.
+- **Shake:** real animated catches give the stage a brief nudge; wrapping a table gives it a slightly stronger one. The **Shake** switch remembers your choice. System reduced-motion settings disable shakes and animations and make runs finish without travel animations.
+- Crew icons react to selection and actual work. A hanging spider appears only while a page is being fetched. Pages fade in and the result underline follows your selected tab.
+- When a run ends, a closable collection card shows the actual totals. Stopped runs show only what was caught. The automatic demo leaves its results visible; open **Your collection** to see its summary.
+- **Download everything** saves one uncompressed ZIP containing the available results: `links.csv`, `table-N.csv`, `matches.csv`, `images.csv`, `text.md`, `my-pick.csv`, and `pages.csv`. Site crawls also include `site-map.json`. No ZIP library or server is needed. Individual exports still work.
+
+### Keyboard shortcuts
+
+Press **Space** to release, **S** to skip animations, **Esc** to stop or close, **1–6** to choose spiders, **D** for dark/original page colours, and **?** for the shortcut guide. These also work inside the page on stage and leave typing and focused controls alone.
+
+![The redesigned Crawlspace workspace, with Mimic catches and a downloadable collection](assets/preview.png)
 
 ## The spiders
 
@@ -76,6 +90,9 @@ Copy the `workers.dev` address it prints into `PROXY_URL` at the top of `js/fetc
 - `js/stage.js`: the page on stage, the overlay and each spider's moves
 - `js/spider.js`: the procedural spiders (one build per species)
 - `js/results.js`: result tabs and exports
+- `js/experience.js`: catch sounds, stage feedback, crew icons, collection summary, ZIP writer and shortcuts
+- `js/demo.js`: bundled field-guide sample, with light and dark colours
+- `js/thread.js`: silk from each hovered result to its source
 - `js/sitemap.js`: the site map, drawn as an orb web
 - `js/app.js`: wiring, teaching the Mimic, the site crawl and the bookmarklet
 - `proxy/`: the fetching proxy (Cloudflare Worker, plus a local runner)

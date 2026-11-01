@@ -15,6 +15,7 @@ class Stage {
   constructor(els) {
     this.els = els; // { wrap, frame, canvas, caption }
     this.ctx = els.canvas.getContext('2d');
+    this.motion = window.matchMedia('(prefers-reduced-motion: reduce)');
     this.speed = 1;
     this.skip = false;
     this.now = 0;
@@ -49,8 +50,8 @@ class Stage {
 
   async show(page) {
     this.endPick();
-    this.reset();
     this.stopWaiting();
+    this.reset();
     const doc = new DOMParser().parseFromString(page.html, 'text/html');
     for (const n of doc.querySelectorAll('script, iframe, frame, object, embed, base, meta[http-equiv], link[rel~="preload"], link[rel~="prefetch"], link[rel~="modulepreload"], link[rel~="manifest"]')) n.remove();
     // lazy images that need scripts to appear: give them their real source
@@ -82,6 +83,7 @@ class Stage {
     this.doc.addEventListener('click', (e) => { if (e.target.closest?.('a, button, input, select, label, summary, area')) e.preventDefault(); }, true);
     this.doc.addEventListener('submit', (e) => e.preventDefault(), true);
     await new Promise((r) => setTimeout(r, 350)); // let fonts and layout settle
+    if (!this.motion.matches) frame.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 250 });
     return this.doc;
   }
 
@@ -135,11 +137,11 @@ class Stage {
     if (!r) return;
     if (r.y > v.y + 50 && r.y + r.h < v.y + v.h - 50) return;
     const y1 = Math.max(0, Math.min(r.y + r.h / 2 - v.h / 2, this.doc.documentElement.scrollHeight - v.h));
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return this.win.scrollTo(v.x, y1);
+    if (this.motion.matches) return this.win.scrollTo(v.x, y1);
     this.glideTo = { y0: v.y, y1, t: 0 };
   }
 
-  vibrate(a, color) { this.amp = Math.min(9, this.amp + a); if (color) this.vibColor = color; }
+  vibrate(a, color) { if (this.motion.matches) return; this.amp = Math.min(9, this.amp + a); if (color) this.vibColor = color; }
 
   setNight(on) {
     this.night = on;
@@ -266,14 +268,16 @@ class Stage {
     for (let i = 0; i < items.length && !this.stopped; i++) {
       const it = items[i];
       const animate = i < full && !this.skip;
-      this.setCaption(def, animate ? `${def.verb} ${i + 1} of ${items.length}${labelOf ? ' · ' + labelOf(it) : ''}` : `catching the other ${items.length - full} quickly…`);
+      this.setCaption(def, animate ? `${def.verb} ${i + 1} of ${items.length}${labelOf ? ' · ' + labelOf(it) : ''}` : `catching ${i + 1} of ${items.length}…`);
       await this[kind](sp, it, animate, def);
+      if (this.stopped) break;
       if (animate && labelOf) this.carry(sp, labelOf(it), this.rectOf(it.el || it.target), def.color);
       onCatch(it);
+      this.onCatch?.(kind, def, animate);
       if (!animate && (i % 4 === 0 || quick >= 0.02)) await this.wait(quick * (quick >= 0.02 ? 1 : 4));
     }
     for (const t of sp.cargo.splice(0)) this.sendOff(t);
-    this.setCaption(def, items.length ? `done: ${items.length} caught` : 'nothing to catch on this page');
+    this.setCaption(def, this.stopped ? 'stopped' : items.length ? `done: ${items.length} caught` : 'nothing to catch on this page');
     await this.wait(items.length ? 0.5 : 0.9);
     this.spiders = this.spiders.filter((s) => s !== sp);
     if (this.track === sp) this.track = null;
@@ -369,6 +373,9 @@ class Stage {
   // ---------- frame ----------
 
   frame(dt) {
+    const reduced = this.motion.matches;
+    this.reduced = reduced;
+    if (reduced) { this.effects = []; this.amp = 0; this.busyUntil = 0; }
     this.now += dt;
     this.tick++;
     const sdt = dt * this.speed;
@@ -445,7 +452,7 @@ class Stage {
     if (m.r && far(m.r)) return; // off screen: skip it before any position lookup
     const r = this.markRect(m);
     if (!r || far(r)) return;
-    const age = Math.min(1, (this.now - m.born) / 0.35);
+    const age = this.reduced ? 1 : Math.min(1, (this.now - m.born) / 0.35);
     ctx.strokeStyle = ctx.fillStyle = m.color;
     ctx.lineWidth = 1.2;
     if (m.type === 'knot') {
@@ -620,9 +627,10 @@ class Stage {
     if (!r) return;
     const ctx = this.ctx;
     ctx.strokeStyle = ctx.fillStyle = pin.color;
-    ctx.globalAlpha = pin.k * (0.14 + 0.1 * Math.sin(this.now * 6));
+    const pulse = this.reduced ? 0 : Math.sin(this.now * 6);
+    ctx.globalAlpha = pin.k * (0.14 + 0.1 * pulse);
     ctx.fillRect(r.x - 6, r.y - 6, r.w + 12, r.h + 12);
-    ctx.globalAlpha = pin.k * (0.65 + 0.3 * Math.sin(this.now * 6));
+    ctx.globalAlpha = pin.k * (0.65 + 0.3 * pulse);
     ctx.lineWidth = 2.5;
     ctx.strokeRect(r.x - 6, r.y - 6, r.w + 12, r.h + 12);
     ctx.globalAlpha = 1;

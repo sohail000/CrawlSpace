@@ -41,6 +41,7 @@ const state = {
   page: null, selected: new Set(), touched: new Set(), pattern: 'emails',
   running: false, stop: false, mimic: null, picking: false, site: null, demo: false,
 };
+let experience;
 
 // ---------- the spider bar: one slim chip per spider ----------
 
@@ -105,6 +106,7 @@ function pick(kind, on) {
   box.checked = on;
   on ? state.selected.add(kind) : state.selected.delete(kind);
   box.closest('.chip').classList.toggle('off', !on);
+  experience?.chosen(kind);
   updateRelease();
 }
 
@@ -172,8 +174,9 @@ function scan() {
 }
 
 function updateRelease() {
-  $('release').disabled = !state.page || state.running || !state.selected.size;
-  $('teach').disabled = !state.page || state.running;
+  $('release').disabled = !state.page || state.running || state.loading || !state.selected.size;
+  $('teach').disabled = !state.page || state.running || state.loading;
+  $('go').querySelector('button').disabled = Boolean(state.loading);
 }
 
 // ---------- loading a page ----------
@@ -187,20 +190,26 @@ function normalize(text) {
 
 // keep: leave the results and the site map alone (opening a page from the map)
 async function load(text, { keep = false } = {}) {
+  if (state.loading) return false;
   const url = normalize(text);
-  if (!url) return status('That doesn’t look like a web address. Try something like en.wikipedia.org/wiki/Spider', true);
+  if (!url) { status('That doesn’t look like a web address. Try something like en.wikipedia.org/wiki/Spider', true); return false; }
+  state.loading = true;
+  updateRelease();
   endDemo();
-  if (state.running) stopRun();
+  if (state.running) { stopRun(); await state.finished; }
   $('url').value = url;
   $('empty').hidden = true;
   $('stagebox').classList.add('loading');
   status('Fetching the page…');
   try {
     await put(await Fetcher.page(url), keep);
+    return true;
   } catch (e) {
     status(e.message, true);
     if (e.kind === 'noproxy') $('empty').hidden = false;
+    return false;
   } finally {
+    state.loading = false;
     $('stagebox').classList.remove('loading');
     updateRelease();
   }
@@ -208,6 +217,7 @@ async function load(text, { keep = false } = {}) {
 
 // Put a page on stage, wherever it came from (the proxy, Wikipedia, or the bookmarklet).
 async function put(page, keep = false) {
+  experience?.closeSummary(false);
   cancelPick();
   showNotice(null);
   siteMap.hide();
@@ -216,7 +226,10 @@ async function put(page, keep = false) {
   $('empty').hidden = true;
   if (page.via !== 'demo') $('url').value = page.url;
   await stage.show(page);
+  stage.doc.addEventListener('keydown', (e) => experience.key(e));
+  stage.doc.addEventListener('pointerdown', () => experience.unlock(), { passive: true });
   state.page = page;
+  document.body.classList.toggle('workspace-live', page.via !== 'demo');
   if (!keep) results.reset();
   pageBar(page);
   scan();
@@ -229,6 +242,7 @@ async function put(page, keep = false) {
   if (page.via !== 'demo') history.replaceState(null, '', '#' + page.url);
   $('stagebox').classList.remove('loading');
   updateRelease();
+  experience?.refresh();
 }
 
 // A page that is an empty shell until its scripts run (YouTube, many web apps): almost no visible text,
@@ -277,7 +291,7 @@ function status(msg, bad = false) {
 // ---------- the mimic: teach by clicking ----------
 
 function teach() {
-  if (!stage.doc || state.running) return;
+  if (!stage.doc || state.running || state.loading) return;
   if (state.picking) return cancelPick();
   siteMap.hide();
   showNotice(null);
@@ -318,8 +332,10 @@ async function learn(el) {
 
 // Release one spider on the page on stage, straight away (the mimic, right after it is taught).
 async function runOne(def) {
+  if (state.running) return;
   state.running = true; state.stop = false;
-  stage.stopped = false; stage.skip = false;
+  state.finished = new Promise((resolve) => { state.finish = resolve; });
+  stage.stopped = false; stage.skip = reducedMotion();
   document.body.classList.add('running');
   updateRelease();
   stage.clearMarks('stamp');
@@ -328,6 +344,7 @@ async function runOne(def) {
   const out = extract(def.kind, stage.doc, page.url);
   results.clear(def.kind);
   results.begin(def.kind, page, out);
+  experience.start();
   status(`The ${def.name} found ${out.items.length} like your pick.`);
   await stage.perform(def.kind, def, out.items, (it) => results.add(def.kind, it, page.url), (it) => labelOf(def.kind, it));
   stage.setCaption(null);
@@ -335,21 +352,25 @@ async function runOne(def) {
   document.body.classList.remove('running');
   status(state.stop ? 'Stopped.' : `Caught ${out.items.length} records. Export them from the results panel, or crawl the site to catch them on more pages.`);
   updateRelease();
+  experience.finish();
+  state.finish();
 }
 
 // ---------- releasing the spiders ----------
 
 async function release({ instant = false } = {}) {
-  if (!state.page || state.running) return;
+  if (!state.page || state.running || state.loading || !state.selected.size) return;
   cancelPick();
   siteMap.hide();
   const scope = $('scope').value;
   const limit = scope === 'page' || state.page.via === 'demo' ? 1 : Number(scope); // the demo page has no site behind it
   state.running = true; state.stop = false;
-  stage.stopped = false; stage.skip = instant;
+  state.finished = new Promise((resolve) => { state.finish = resolve; });
+  stage.stopped = false; stage.skip = instant || reducedMotion();
   document.body.classList.add('running');
   updateRelease();
   results.reset();
+  experience.start();
   const start = new URL(state.page.url);
   const queue = [state.page.url], seen = new Set(queue);
   // the site as the crawl finds it: pages (knots) and the links between them (threads)
@@ -366,6 +387,7 @@ async function release({ instant = false } = {}) {
         page = await Fetcher.page(url);
         if (state.stop) break;
         await stage.show(page);
+        stage.doc.addEventListener('keydown', (e) => experience.key(e));
         state.page = page;
         pageBar(page);
       } catch (e) {
@@ -402,6 +424,8 @@ async function release({ instant = false } = {}) {
   status(state.stop ? 'Stopped.' : `Done: ${done} page${done === 1 ? '' : 's'} crawled. Export from the results panel.`);
   updateRelease();
   if (site && done > 1) { pageBar(state.page); if (!state.stop) showMap(); }
+  experience.finish();
+  state.finish();
 }
 
 function showMap() {
@@ -448,6 +472,7 @@ async function checkLinks() {
   const broken = results.data.links.filter((l) => l.status >= 400).length;
   status(`Checked ${n} links: ${broken} broken.`, broken > 0);
   results.updateLink();
+  if (!$('summary').hidden) experience.summary();
 }
 
 // ---------- the demo: something to watch the moment you arrive ----------
@@ -599,6 +624,7 @@ let lastFrame = performance.now();
 requestAnimationFrame(function frame(ts) {
   const dt = Math.min(0.05, (ts - lastFrame) / 1000);
   stage.frame(dt);
+  experience?.frame(ts);
   siteMap.frame(dt);
   if (state.running && thread.want) thread.hide();
   thread.frame(dt);
@@ -607,6 +633,7 @@ requestAnimationFrame(function frame(ts) {
 });
 
 buildDock();
+experience = new Experience(stage, results, state, SPIDERS);
 updateRelease();
 let night = true;
 try { night = localStorage.getItem('crawlspace.night') !== '0'; } catch {}

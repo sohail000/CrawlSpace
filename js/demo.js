@@ -64,6 +64,37 @@ function demoHtml() {
   .price { font-size: 18px; color: #8a5a00; }
   address { font-style: normal; background: #e4edd6; border-radius: 10px; padding: 16px 20px; font-family: system-ui, sans-serif; line-height: 1.8; }
   footer { padding: 18px 40px 30px; font: 13px system-ui, sans-serif; color: #6b7558; }
+  :root { --paper: #f5f0e3; --ink: #34382e; --muted: #6b725f; --edge: #d6d9c6; --card: #fcfaf3; --accent: #6c572b; --wash: #e9e8d9; }
+  html:has(#cs-night) { filter: none; background: #171b15 !important; --paper: #171b15; --ink: #dce0cf; --muted: #a0ad91; --edge: #38422e; --card: #1f271b; --accent: #d3bc86; --wash: #28331f; }
+  html:has(#cs-night) img { filter: none; }
+  body { background: var(--paper); color: var(--ink); font: 14px/1.75 system-ui, sans-serif; }
+  header { position: relative; overflow: hidden; background: var(--wash); color: var(--ink); padding: 54px 36px 28px; border-bottom: 1px solid var(--edge); }
+  header::before { content: 'THE GARDEN ARCHIVE / FIELD NOTES 001'; display: block; color: var(--accent); font: 9px monospace; letter-spacing: 2px; margin-bottom: 15px; }
+  header::after { content: ''; position: absolute; width: 260px; height: 260px; right: -50px; top: -75px; border: 1px solid var(--edge); border-radius: 50%; box-shadow: 0 0 0 25px var(--wash), 0 0 0 26px var(--edge), 0 0 0 55px var(--wash), 0 0 0 56px var(--edge); opacity: .4; pointer-events: none; }
+  header h1 { position: relative; z-index: 1; font: 40px/1.08 Georgia, serif; letter-spacing: -1px; max-width: 580px; }
+  header p { position: relative; z-index: 1; margin-top: 12px; color: var(--muted); font-size: 12px; }
+  nav { background: var(--paper); border-bottom: 1px solid var(--edge); padding: 12px 36px; font-size: 10px; letter-spacing: .5px; }
+  nav a, .card a { color: var(--accent); }
+  main { padding: 0 36px 32px; }
+  h2 { font: 26px/1.2 Georgia, serif; color: var(--ink); margin-top: 28px; letter-spacing: -.5px; }
+  main > p { color: var(--muted); font-size: 12px; max-width: 760px; }
+  table { font-size: 11px; line-height: 1.5; }
+  caption { font: 9px monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding-bottom: 12px; }
+  th, td { border-color: var(--edge); padding: 10px 8px; }
+  th { background: var(--wash); color: var(--accent); font-weight: 500; }
+  .cards { gap: 12px; }
+  .card { background: var(--card); border-color: var(--edge); border-radius: 6px; padding: 10px; }
+  .card img { height: 100px; object-fit: cover; border-radius: 3px; opacity: .85; }
+  .card h3 { font: 19px/1.1 Georgia, serif; margin-block: 12px 7px; }
+  .card p { font-size: 11px; color: var(--muted); }
+  .card .latin { color: var(--accent); font-size: 10px; }
+  .card .seen, .card a { font-size: 10px; color: var(--accent); font-weight: 400; }
+  .shelf li { background: var(--wash); border-color: var(--edge); font-size: 11px; }
+  .price { color: var(--accent); font-size: 21px; font-weight: 400; }
+  address { background: var(--wash); font-size: 12px; }
+  address a, main > p a { color: var(--accent); }
+  footer { color: var(--muted); font-size: 10px; border-top: 1px solid var(--edge); }
+  @media(max-width:560px) { header, main { padding-left: 18px; padding-right: 18px; } header h1 { font-size: 30px; } nav { padding-inline: 18px; gap: 15px; } .cards, .shelf { grid-template-columns: repeat(2,minmax(0,1fr)); } table { font-size: 10px; } th, td { padding: 7px 4px; } }
 </style></head>
 <body>
 <header><h1>Field Guide: Spiders of the Garden</h1><p>A small, friendly guide to the eight-legged neighbours in your hedge.</p></header>

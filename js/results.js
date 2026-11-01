@@ -10,6 +10,7 @@ class Results {
     this.reset();
     els.tabs.addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) this.select(b.dataset.tab); });
     els.body.addEventListener('click', (e) => this.click(e));
+    new ResizeObserver(() => this.positionLine()).observe(els.tabs);
   }
 
   reset() {
@@ -29,10 +30,34 @@ class Results {
   renderTabs() {
     const tabs = this.defs.filter((d) => d.kind !== 'mimic' || this.cols.length).map((d) => [d.kind, d.short, d.color]);
     if (this.data.pages.length > 1) tabs.push(['pages', 'Pages', '#e5e7eb']);
-    this.els.tabs.innerHTML = tabs.map(([k, label, c]) => {
+    for (const b of this.els.tabs.querySelectorAll('[data-tab]')) if (!tabs.some(([k]) => k === b.dataset.tab)) b.remove();
+    for (const [k, label, c] of tabs) {
       const n = k === 'text' ? this.data.text.reduce((s, b) => s + b.words, 0) : this.data[k].length;
-      return `<button data-tab="${k}" style="--c:${c}" aria-selected="${this.active === k}">${label}<em>${n ? (k === 'text' ? n.toLocaleString() + 'w' : n) : ''}</em></button>`;
-    }).join('');
+      let b = this.els.tabs.querySelector(`[data-tab="${k}"]`);
+      if (!b) {
+        b = document.createElement('button'); b.dataset.tab = k;
+        b.innerHTML = `${label}<em></em>`;
+        this.els.tabs.append(b);
+      }
+      b.style.setProperty('--c', c);
+      b.setAttribute('aria-selected', String(this.active === k));
+      b.querySelector('em').textContent = n ? (k === 'text' ? n.toLocaleString() + 'w' : n) : '';
+    }
+    if (!this.line) {
+      this.line = document.createElement('span'); this.line.className = 'tabline';
+      this.line.setAttribute('aria-hidden', 'true'); this.els.tabs.append(this.line);
+    }
+    this.positionLine();
+  }
+
+  positionLine() {
+    const b = this.els.tabs.querySelector('[aria-selected="true"]');
+    if (!this.line) return;
+    this.line.hidden = !b;
+    if (!b) return;
+    this.line.style.width = `${b.offsetWidth}px`;
+    this.line.style.transform = `translateX(${b.offsetLeft}px)`;
+    this.line.style.background = b.style.getPropertyValue('--c');
   }
 
   select(kind) {
@@ -228,6 +253,18 @@ class Results {
   }
 
   // ---------- actions ----------
+
+  exportFiles() {
+    const D = this.data, files = [];
+    if (D.links.length) files.push(['links.csv', toCsv([['page', 'text', 'url', 'type', 'times linked', 'status'], ...D.links.map((l) => [l.page, l.text, l.href, l.kind, l.count, l.status ?? ''])])]);
+    D.tables.forEach((t, i) => files.push([`table-${i + 1}.csv`, toCsv(t.rows)]));
+    if (D.regex.length) files.push(['matches.csv', toCsv([['page', 'match', 'times found', 'context'], ...D.regex.map((r) => [r.page, r.value, r.count, r.context])])]);
+    if (D.images.length) files.push(['images.csv', toCsv([['page', 'image', 'alt text', 'alt state', 'width', 'height'], ...D.images.map((i) => [i.page, i.src, i.alt, i.altState, i.w || '', i.h || ''])])]);
+    if (D.text.length) files.push(['text.md', D.text.map((p) => `<!-- ${p.page} -->\n\n${p.md.join('\n\n')}`).join('\n\n---\n\n')]);
+    if (D.mimic.length) files.push(['my-pick.csv', toCsv([this.cols.map((c) => c.name), ...D.mimic.map((r) => this.cols.map((c) => r.values[c.key] || ''))])]);
+    if (D.pages.length) files.push(['pages.csv', toCsv([['url', 'title', 'status', 'ms', 'error'], ...D.pages.map((p) => [p.url, p.title || '', p.status || '', p.ms || '', p.error || ''])])]);
+    return files;
+  }
 
   click(e) {
     const f = e.target.closest('[data-filter]');
